@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, Alert } from 'react-native';
-import MapView, { Marker } from 'react-native-maps';
+import { View, Text, StyleSheet, ActivityIndicator, Alert, Platform } from 'react-native';
 import * as Location from 'expo-location';
+import HuntMap from '../components/HuntMap';
 
 export default function HomeScreen() {
   const [location, setLocation] = useState(null);
@@ -12,12 +12,15 @@ export default function HomeScreen() {
   }, []);
 
   async function requestLocation() {
+    // Geolocation works on web too, but with a browser permission prompt
     const { status } = await Location.requestForegroundPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert(
-        'Location required',
-        'HuntMap needs your location to show nearby hunts and checkpoints.'
-      );
+      if (Platform.OS !== 'web') {
+        Alert.alert(
+          'Location required',
+          'HuntMap needs your location to show nearby hunts and checkpoints.'
+        );
+      }
       setLoading(false);
       return;
     }
@@ -35,39 +38,15 @@ export default function HomeScreen() {
     );
   }
 
-  // Default to Denver if location permission was denied
-  const region = location
-    ? {
-        latitude: location.latitude,
-        longitude: location.longitude,
-        latitudeDelta: 0.02,
-        longitudeDelta: 0.02,
-      }
-    : {
-        latitude: 39.7392,
-        longitude: -104.9903,
-        latitudeDelta: 0.1,
-        longitudeDelta: 0.1,
-      };
-
   return (
     <View style={styles.container}>
-      <MapView style={styles.map} region={region} showsUserLocation>
-        {location && (
-          <Marker
-            coordinate={{ latitude: location.latitude, longitude: location.longitude }}
-            title="You are here"
-            pinColor="#f97316"
-          />
-        )}
-      </MapView>
+      <HuntMap location={location} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  map: { flex: 1 },
   centered: {
     flex: 1,
     justifyContent: 'center',
