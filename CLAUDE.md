@@ -49,9 +49,10 @@ This is a single Expo codebase that targets three platforms: iOS, Android, and W
 | Backend API | Django + Django REST Framework |
 | Database | PostgreSQL + PostGIS |
 | Auth | djangorestframework-simplejwt + django-allauth |
-| AI Engine | Claude API (clue/story/hint generation) |
+| AI Engine | Claude API (clue/story/hint generation + conversational hunt designer) |
 | Maps (mobile) | react-native-maps (Google Maps provider) |
-| Maps (web) | react-leaflet or @react-google-maps/api (conditional swap) |
+| Maps (web) | react-leaflet with OpenStreetMap tiles (free, no API key) |
+| Landmark Discovery | OpenStreetMap/Overpass API + Google Places API + Wikipedia API |
 | QR Codes | expo-camera (scan, mobile only) + python-qrcode (generate, backend) |
 | Hosting | Railway or Render (backend) + Expo EAS (mobile) + Vercel or Netlify (web) |
 
@@ -229,11 +230,23 @@ App Store + web deployment, beta testing, performance optimization.
 - **Web is full-featured for creators**, lightweight dashboard for players, mobile-only for active GPS play
 - **Map component is platform-aware:** react-native-maps on mobile, react-leaflet on web, same props interface
 - **Responsive navigation:** bottom tabs on mobile, sidebar on desktop/web (sidebar coming in Phase 2)
+- **Web layout modeled after chatbot UIs** (Claude.ai / ChatGPT style): left sidebar = hunt list, main area = map + AI chat panel
+- **No printed maps** — entirely app-driven. Players see only the current clue, GPS unlocks the next checkpoint when they arrive
+- **Landmark discovery stack** (queried when a creator drops a pin):
+  - OpenStreetMap/Overpass API — statues, murals, historic sites, trails, anything community-tagged (free)
+  - Google Places API — businesses, parks, named buildings, tourist attractions (free tier)
+  - Wikipedia API — historical context and descriptions for landmarks (free)
+- **AI is a creative assistant, not autopilot** — always human-in-the-loop:
+  1. Creator drops a pin → app queries nearby landmarks
+  2. Creator picks the relevant landmark (or describes it manually)
+  3. AI generates 2-3 clue options based on landmark + hunt theme
+  4. Creator picks, edits, or regenerates
+  5. Nothing goes live without creator approval
+- **Conversational hunt designer** — creator can also chat with AI ("design me a Halloween hunt near Cheesman Park with 5 stops") and AI drafts the full hunt for review
 - Game modes: competitive (scored, timed) AND free-play (relaxed, no scoring) — toggled per hunt
 - Players: both solo AND team play supported
 - Checkpoint verification: GPS proximity (~30m radius) AND QR code scanning (mobile only)
 - AI output: always treated as editable drafts, never auto-published
-- All AI-generated content must be fully editable by creators
 - Monetization: free for now, architecture supports future premium features
 - PostGIS required for spatial queries (geofencing, proximity, nearby hunts)
 
