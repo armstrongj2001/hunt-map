@@ -1,10 +1,13 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 
-// Change this to your computer's local IP when testing on a physical device.
-// 10.0.2.2 is the Android emulator's alias for localhost.
-// For Expo Go on a real phone, use your machine's IP: e.g. 'http://192.168.1.X:8000'
-const BASE_URL = 'http://10.0.2.2:8000';
+// Web browser can reach Django directly via localhost.
+// iPhone (Expo Go) needs your machine's actual local network IP.
+// Find your IP with: ip addr show eth0 | grep inet
+const BASE_URL = Platform.OS === 'web'
+  ? 'http://localhost:8000'
+  : 'http://100.113.3.1:8000'; // Tailscale IP — stable across reboots
 
 const client = axios.create({
   baseURL: BASE_URL,
