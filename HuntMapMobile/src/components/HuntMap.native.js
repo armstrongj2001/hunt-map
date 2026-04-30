@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import MapView, { Marker } from 'react-native-maps';
+import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 
 const MAP_TYPES = [
   { key: 'standard',  label: 'Default'   },
@@ -8,26 +8,87 @@ const MAP_TYPES = [
   { key: 'terrain',   label: 'Terrain'   },
 ];
 
-export default function HuntMap({ location }) {
-  const [mapType, setMapType] = useState('standard');
+const DEFAULT_REGION = {
+  latitude: 39.7392,
+  longitude: -104.9903,
+  latitudeDelta: 0.1,
+  longitudeDelta: 0.1,
+};
 
-  const region = location
+export default function HuntMap({
+  location,
+  markers = [],
+  droppedPins = [],
+  onMapPress,
+  onPinDrop,
+  onPinRemove,
+  showPinDrop = false,
+}) {
+  const [mapType, setMapType] = useState('standard');
+  const mapRef = useRef(null);
+
+  // Fly to location when GPS or search result changes
+  useEffect(() => {
+    if (!mapRef.current || !location) return;
+    mapRef.current.animateToRegion({
+      latitude: location.latitude,
+      longitude: location.longitude,
+      latitudeDelta: 0.02,
+      longitudeDelta: 0.02,
+    }, 600);
+  }, [location?.latitude, location?.longitude]);
+
+  async function handleMapPress(e) {
+    if (!showPinDrop || !onPinDrop) return;
+    const { latitude, longitude } = e.nativeEvent.coordinate;
+    onPinDrop({ latitude, longitude, address: `${latitude.toFixed(5)}, ${longitude.toFixed(5)}` });
+  }
+
+  const initialRegion = location
     ? { latitude: location.latitude, longitude: location.longitude, latitudeDelta: 0.02, longitudeDelta: 0.02 }
-    : { latitude: 39.7392, longitude: -104.9903, latitudeDelta: 0.1, longitudeDelta: 0.1 };
+    : DEFAULT_REGION;
 
   return (
     <View style={styles.container}>
-      <MapView style={styles.map} region={region} showsUserLocation mapType={mapType}>
-        {location && (
+      <MapView
+        ref={mapRef}
+        style={styles.map}
+        provider={PROVIDER_GOOGLE}
+        mapType={mapType}
+        initialRegion={initialRegion}
+        showsUserLocation
+        showsMyLocationButton
+        showsCompass
+        onPress={showPinDrop ? handleMapPress : undefined}
+      >
+        {/* Read-only markers */}
+        {markers.map((m, i) => (
           <Marker
-            coordinate={{ latitude: location.latitude, longitude: location.longitude }}
-            title="You are here"
-            pinColor="#E8734A"
+            key={i}
+            coordinate={{ latitude: m.latitude, longitude: m.longitude }}
+            title={m.title || `Checkpoint ${i + 1}`}
           />
-        )}
+        ))}
+
+        {/* Draggable checkpoint pins */}
+        {droppedPins.map((pin, i) => (
+          <Marker
+            key={`pin-${i}`}
+            coordinate={{ latitude: pin.latitude, longitude: pin.longitude }}
+            title={`Checkpoint ${i + 1}`}
+            description={pin.address}
+            draggable
+            pinColor="#E8734A"
+            onDragEnd={(e) => {
+              if (!onPinDrop) return;
+              const { latitude, longitude } = e.nativeEvent.coordinate;
+              onPinDrop({ latitude, longitude, address: pin.address }, i);
+            }}
+          />
+        ))}
       </MapView>
 
-      {/* Floating toggle — top-right corner */}
+      {/* Map type toggle — top-right */}
       <View style={styles.toggle}>
         {MAP_TYPES.map(({ key, label }) => (
           <TouchableOpacity
@@ -62,19 +123,8 @@ const styles = StyleSheet.create({
     elevation: 4,
     overflow: 'hidden',
   },
-  toggleBtn: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-  },
-  toggleBtnActive: {
-    backgroundColor: '#1A3C34',
-  },
-  toggleText: {
-    fontSize: 12,
-    fontFamily: 'Inter_600SemiBold',
-    color: '#5F5E5A',
-  },
-  toggleTextActive: {
-    color: '#FFFFFF',
-  },
+  toggleBtn: { paddingVertical: 8, paddingHorizontal: 12 },
+  toggleBtnActive: { backgroundColor: '#1A3C34' },
+  toggleText: { fontSize: 12, fontFamily: 'Inter_600SemiBold', color: '#5F5E5A' },
+  toggleTextActive: { color: '#FFFFFF' },
 });

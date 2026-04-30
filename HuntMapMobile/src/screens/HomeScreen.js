@@ -9,7 +9,6 @@ import { useTheme, spacing, fontSize, borderRadius } from '../theme';
 import { palette } from '../theme/colors';
 import HuntMap from '../components/HuntMap';
 import HuntCard from '../components/HuntCard';
-import PlacesSearchBar from '../components/PlacesSearchBar';
 
 const MOCK_HUNTS = [
   { id: 1, title: 'Denver History Mystery',      creator: 'jobi',      distance: '2.3 mi', rating: 4.5, difficulty: 'Medium', mode: 'Competitive', icon: '🏛️', colorKey: 'mystery'  },
@@ -25,7 +24,6 @@ const FILTERS = ['All', 'Nearby', 'Popular', 'New', 'Competitive', 'Free Play'];
 export default function HomeScreen() {
   const { colors } = useTheme();
   const [location, setLocation] = useState(null);
-  const [searchCenter, setSearchCenter] = useState(null); // set when user searches a place
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [activeFilter, setActiveFilter] = useState('All');
@@ -52,23 +50,14 @@ export default function HomeScreen() {
     return matchesSearch && matchesFilter;
   });
 
-  // When a place is selected from autocomplete, fly the map there
-  function handlePlaceSelected(place) {
-    setSearchCenter({ latitude: place.latitude, longitude: place.longitude });
-  }
-
-  // Map uses searchCenter when available, falls back to GPS location
-  const mapLocation = searchCenter || location;
-
   if (Platform.OS === 'web') {
     return (
       <WebDiscover
         colors={colors} s={s}
-        mapLocation={mapLocation} loading={loading}
+        mapLocation={location} loading={loading}
         search={search} setSearch={setSearch}
         activeFilter={activeFilter} setActiveFilter={setActiveFilter}
         filteredHunts={filteredHunts}
-        onPlaceSelected={handlePlaceSelected}
       />
     );
   }
@@ -85,18 +74,16 @@ export default function HomeScreen() {
 
 // ── Web layout: map left 60%, feed right 40% ─────────────────────────────────
 
-function WebDiscover({ colors, s, mapLocation, loading, search, setSearch, activeFilter, setActiveFilter, filteredHunts, onPlaceSelected }) {
+function WebDiscover({ colors, s, mapLocation, loading, search, setSearch, activeFilter, setActiveFilter, filteredHunts }) {
   return (
     <View style={s.webShell}>
 
-      {/* Map panel — Places search bar floats on top */}
+      {/* Map panel — Places Autocomplete is built into HuntMap */}
       <View style={s.webMap}>
         {loading
           ? <View style={s.centered}><ActivityIndicator size="large" color={colors.cta} /></View>
           : <HuntMap location={mapLocation} />
         }
-        {/* Floating Places Autocomplete — absolute over the map */}
-        {!loading && <PlacesSearchBar onPlaceSelected={onPlaceSelected} placeholder="Search any place..." />}
       </View>
 
       {/* Hunt feed panel */}

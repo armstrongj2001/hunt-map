@@ -1,138 +1,301 @@
-import React, { useEffect, useState } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
-import L from 'leaflet';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
+import {
+  GoogleMap,
+  useJsApiLoader,
+  Marker,
+  InfoWindow,
+  Autocomplete,
+} from '@react-google-maps/api';
 
-// Free tile sources — no API key required for any of these
-const TILE_LAYERS = {
-  standard: {
-    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+const API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
+const LIBRARIES = ['places'];
+
+// Default center: Denver, CO
+const DEFAULT_CENTER = { lat: 39.7392, lng: -104.9903 };
+const DEFAULT_ZOOM = 13;
+
+// Minimal map style — keeps Google's controls but removes clutter
+const mapOptions = {
+  mapTypeControl: true,
+  mapTypeControlOptions: {
+    position: 9, // RIGHT_BOTTOM
   },
-  satellite: {
-    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    attribution: '&copy; <a href="https://www.esri.com">Esri</a>, Maxar, Earthstar Geographics',
-  },
-  terrain: {
-    url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
-    attribution: '&copy; <a href="https://opentopomap.org">OpenTopoMap</a>, &copy; OpenStreetMap contributors',
-  },
+  streetViewControl: true,
+  zoomControl: true,
+  fullscreenControl: false,
+  myLocationButton: true,
 };
 
-const MAP_TYPES = [
-  { key: 'standard',  label: 'Default'   },
-  { key: 'satellite', label: 'Satellite' },
-  { key: 'terrain',   label: 'Terrain'   },
-];
-
-function LeafletCSS() {
-  useEffect(() => {
-    if (document.querySelector('#leaflet-css')) return;
-    const link = document.createElement('link');
-    link.id = 'leaflet-css';
-    link.rel = 'stylesheet';
-    link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-    document.head.appendChild(link);
-  }, []);
-  return null;
+// Reverse geocode a LatLng using the Geocoding API
+async function reverseGeocode(lat, lng) {
+  try {
+    const res = await fetch(
+      `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${API_KEY}`
+    );
+    const data = await res.json();
+    return data.results?.[0]?.formatted_address ?? `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+  } catch {
+    return `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+  }
 }
 
-function fixLeafletIcon() {
-  delete L.Icon.Default.prototype._getIconUrl;
-  L.Icon.Default.mergeOptions({
-    iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-    iconUrl:       'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-    shadowUrl:     'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+export default function HuntMap({
+  location,           // { latitude, longitude } — GPS position
+  markers = [],       // [{ latitude, longitude, title }] — read-only pins
+  onMapPress,         // (lat, lng) => void — called when user clicks map (Create page)
+  droppedPins = [],   // [{ latitude, longitude, address }] — draggable checkpoint pins
+  onPinDrop,          // ({ latitude, longitude, address }) => void — new pin dropped/dragged
+  onPinRemove,        // (index) => void — pin removed
+  showPinDrop = false,// true on Create page
+}) {
+  const { isLoaded } = useJsApiLoader({
+    googleMapsApiKey: API_KEY,
+    libraries: LIBRARIES,
   });
-}
 
-function MapUpdater({ center }) {
-  const map = useMap();
+  // Stable map ref — never triggers re-render
+  const mapRef = useRef(null);
+
+  // Autocomplete instance ref
+  const autocompleteRef = useRef(null);
+
+  // InfoWindow state: which dropped pin is selected
+  const [activePin, setActivePin] = useState(null);
+
+  // Fly to location when it changes (GPS or search result)
+  const prevLocation = useRef(null);
   useEffect(() => {
-    if (center) map.flyTo(center, 14);
-  }, [center]);
-  return null;
-}
+    if (!mapRef.current || !location) return;
+    const { latitude: lat, longitude: lng } = location;
+    const prev = prevLocation.current;
+    if (prev && prev.latitude === lat && prev.longitude === lng) return;
+    prevLocation.current = location;
+    mapRef.current.panTo({ lat, lng });
+    mapRef.current.setZoom(14);
+  }, [location]);
 
-export default function HuntMap({ location, markers = [], onMapPress }) {
-  const [mapType, setMapType] = useState('standard');
-  fixLeafletIcon();
+  const onLoad = useCallback((map) => {
+    mapRef.current = map;
+    // If we already have a location on first load, fly there
+    if (location) {
+      map.panTo({ lat: location.latitude, lng: location.longitude });
+      map.setZoom(14);
+    }
+  }, []); // stable — no deps
+
+  const onUnmount = useCallback(() => {
+    mapRef.current = null;
+  }, []);
+
+  async function handleMapClick(e) {
+    if (!showPinDrop || !onPinDrop) return;
+    const lat = e.latLng.lat();
+    const lng = e.latLng.lng();
+    const address = await reverseGeocode(lat, lng);
+    onPinDrop({ latitude: lat, longitude: lng, address });
+  }
+
+  async function handlePinDragEnd(e, index) {
+    if (!onPinDrop) return;
+    const lat = e.latLng.lat();
+    const lng = e.latLng.lng();
+    const address = await reverseGeocode(lat, lng);
+    onPinDrop({ latitude: lat, longitude: lng, address }, index);
+  }
+
+  function handlePlaceSelected() {
+    const place = autocompleteRef.current?.getPlace();
+    if (!place?.geometry?.location) return;
+    const lat = place.geometry.location.lat();
+    const lng = place.geometry.location.lng();
+    mapRef.current?.panTo({ lat, lng });
+    mapRef.current?.setZoom(15);
+  }
 
   const center = location
-    ? [location.latitude, location.longitude]
-    : [39.7392, -104.9903];
+    ? { lat: location.latitude, lng: location.longitude }
+    : DEFAULT_CENTER;
 
-  const tile = TILE_LAYERS[mapType];
+  if (!isLoaded) {
+    return (
+      <div style={{ ...containerStyle, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#e5e3df' }}>
+        <p style={{ fontFamily: 'Inter, sans-serif', color: '#5F5E5A' }}>Loading map…</p>
+      </div>
+    );
+  }
 
   return (
-    <div style={{ width: '100%', height: '100%', minHeight: 400, position: 'relative' }}>
-      <LeafletCSS />
-      <MapContainer
-        center={center}
-        zoom={13}
-        style={{ width: '100%', height: '100%' }}
-        onClick={onMapPress}
-      >
-        <TileLayer key={mapType} attribution={tile.attribution} url={tile.url} />
-        <MapUpdater center={center} />
+    <div style={containerStyle}>
+      {/* Floating Places Autocomplete */}
+      <div style={searchBarStyle}>
+        <span style={{ fontSize: 15, flexShrink: 0 }}>🔍</span>
+        <Autocomplete
+          onLoad={(ac) => { autocompleteRef.current = ac; }}
+          onPlaceChanged={handlePlaceSelected}
+          options={{ types: ['geocode', 'establishment'] }}
+        >
+          <input
+            type="text"
+            placeholder="Search a location…"
+            style={searchInputStyle}
+          />
+        </Autocomplete>
+      </div>
 
+      <GoogleMap
+        mapContainerStyle={{ width: '100%', height: '100%' }}
+        defaultCenter={center}
+        defaultZoom={DEFAULT_ZOOM}
+        options={mapOptions}
+        onLoad={onLoad}
+        onUnmount={onUnmount}
+        onClick={showPinDrop ? handleMapClick : undefined}
+        cursor={showPinDrop ? 'crosshair' : undefined}
+      >
+        {/* User GPS position */}
         {location && (
-          <Marker position={[location.latitude, location.longitude]}>
-            <Popup>You are here</Popup>
-          </Marker>
+          <Marker
+            position={{ lat: location.latitude, lng: location.longitude }}
+            title="You are here"
+            icon={{
+              path: window.google.maps.SymbolPath.CIRCLE,
+              scale: 10,
+              fillColor: '#4285F4',
+              fillOpacity: 1,
+              strokeColor: '#ffffff',
+              strokeWeight: 2,
+            }}
+          />
         )}
 
-        {markers.map((marker, i) => (
-          <Marker key={i} position={[marker.latitude, marker.longitude]}>
-            <Popup>{marker.title || `Checkpoint ${i + 1}`}</Popup>
-          </Marker>
+        {/* Read-only markers passed in from parent */}
+        {markers.map((m, i) => (
+          <Marker
+            key={i}
+            position={{ lat: m.latitude, lng: m.longitude }}
+            title={m.title || `Checkpoint ${i + 1}`}
+          />
         ))}
-      </MapContainer>
 
-      {/* Floating toggle — top-right corner, above the map (z-index > leaflet's 400) */}
-      <div style={toggleStyles.wrapper}>
-        {MAP_TYPES.map(({ key, label }) => (
-          <button
-            key={key}
-            onClick={() => setMapType(key)}
-            style={{
-              ...toggleStyles.btn,
-              ...(mapType === key ? toggleStyles.btnActive : {}),
+        {/* Draggable checkpoint pins (Create page) */}
+        {droppedPins.map((pin, i) => (
+          <Marker
+            key={`pin-${i}`}
+            position={{ lat: pin.latitude, lng: pin.longitude }}
+            draggable
+            onDragEnd={(e) => handlePinDragEnd(e, i)}
+            onClick={() => setActivePin(activePin === i ? null : i)}
+            label={{ text: `${i + 1}`, color: '#fff', fontWeight: 'bold', fontSize: '13px' }}
+            icon={{
+              url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
+                <svg xmlns="http://www.w3.org/2000/svg" width="36" height="44" viewBox="0 0 36 44">
+                  <path d="M18 0C8.06 0 0 8.06 0 18c0 13.5 18 26 18 26s18-12.5 18-26C36 8.06 27.94 0 18 0z" fill="#E8734A"/>
+                  <circle cx="18" cy="18" r="10" fill="white" opacity="0.9"/>
+                </svg>
+              `)}`,
+              scaledSize: { width: 36, height: 44 },
+              anchor: { x: 18, y: 44 },
             }}
           >
-            {label}
-          </button>
+            {activePin === i && (
+              <InfoWindow onCloseClick={() => setActivePin(null)}>
+                <div style={infoBubbleStyle}>
+                  <p style={{ margin: '0 0 6px', fontWeight: 600, fontSize: 13, color: '#1C1C1A' }}>
+                    Checkpoint {i + 1}
+                  </p>
+                  <p style={{ margin: '0 0 8px', fontSize: 12, color: '#5F5E5A', maxWidth: 220 }}>
+                    {pin.address}
+                  </p>
+                  {onPinRemove && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onPinRemove(i); setActivePin(null); }}
+                      style={removeButtonStyle}
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+              </InfoWindow>
+            )}
+          </Marker>
         ))}
-      </div>
+      </GoogleMap>
+
+      {/* Hint overlay when pin-drop mode is active and no pins yet */}
+      {showPinDrop && droppedPins.length === 0 && (
+        <div style={hintStyle} onClick={(e) => e.stopPropagation()}>
+          <span>📍 Click the map to drop a checkpoint</span>
+        </div>
+      )}
     </div>
   );
 }
 
-const toggleStyles = {
-  wrapper: {
-    position: 'absolute',
-    top: 16,
-    right: 16,
-    zIndex: 1000,
-    display: 'flex',
-    flexDirection: 'row',
-    backgroundColor: 'rgba(255,255,255,0.97)',
-    borderRadius: 12,
-    boxShadow: '0 2px 12px rgba(0,0,0,0.12)',
-    overflow: 'hidden',
-  },
-  btn: {
-    padding: '8px 12px',
-    border: 'none',
-    background: 'transparent',
-    fontSize: 12,
-    fontFamily: 'Inter, system-ui, sans-serif',
-    fontWeight: 600,
-    color: '#5F5E5A',
-    cursor: 'pointer',
-    transition: 'background 150ms ease',
-  },
-  btnActive: {
-    backgroundColor: '#1A3C34',
-    color: '#FFFFFF',
-  },
+const containerStyle = {
+  width: '100%',
+  height: '100%',
+  minHeight: 400,
+  position: 'relative',
+};
+
+const searchBarStyle = {
+  position: 'absolute',
+  top: 16,
+  left: 16,
+  right: 56, // leave room for Google's controls on right
+  zIndex: 10,
+  display: 'flex',
+  alignItems: 'center',
+  backgroundColor: 'rgba(255,255,255,0.97)',
+  borderRadius: 12,
+  boxShadow: '0 2px 12px rgba(0,0,0,0.15)',
+  padding: '10px 14px',
+  gap: 8,
+};
+
+const searchInputStyle = {
+  flex: 1,
+  border: 'none',
+  outline: 'none',
+  fontSize: 15,
+  fontFamily: 'Inter, system-ui, sans-serif',
+  color: '#1C1C1A',
+  backgroundColor: 'transparent',
+  width: '100%',
+  minWidth: 0,
+};
+
+const infoBubbleStyle = {
+  fontFamily: 'Inter, system-ui, sans-serif',
+  padding: '4px 2px',
+};
+
+const removeButtonStyle = {
+  border: 'none',
+  background: '#E8734A',
+  color: '#fff',
+  borderRadius: 6,
+  padding: '4px 10px',
+  fontSize: 12,
+  fontWeight: 600,
+  cursor: 'pointer',
+  fontFamily: 'Inter, system-ui, sans-serif',
+};
+
+const hintStyle = {
+  position: 'absolute',
+  bottom: 80,
+  left: '50%',
+  transform: 'translateX(-50%)',
+  zIndex: 10,
+  backgroundColor: 'rgba(255,255,255,0.92)',
+  borderRadius: 10,
+  padding: '10px 18px',
+  fontSize: 13,
+  fontFamily: 'Inter, system-ui, sans-serif',
+  fontWeight: 600,
+  color: '#1C1C1A',
+  boxShadow: '0 2px 10px rgba(0,0,0,0.12)',
+  pointerEvents: 'none',
+  whiteSpace: 'nowrap',
 };

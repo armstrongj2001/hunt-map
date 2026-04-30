@@ -3,11 +3,10 @@ import {
   View, Text, StyleSheet, TextInput, ScrollView,
   TouchableOpacity, Switch, Platform,
 } from 'react-native';
-import { MapPin, Sparkles } from 'lucide-react-native';
+import { MapPin } from 'lucide-react-native';
 import { useTheme, spacing, fontSize, borderRadius } from '../theme';
 import { palette } from '../theme/colors';
 import HuntMap from '../components/HuntMap';
-import PlacesSearchBar from '../components/PlacesSearchBar';
 
 const THEMES = [
   { key: 'custom',     label: 'Custom',     icon: '✏️' },
@@ -28,10 +27,27 @@ export default function CreateScreen() {
   const [theme, setTheme] = useState('custom');
   const [competitive, setCompetitive] = useState(false);
   const [showThemePicker, setShowThemePicker] = useState(false);
-  const [mapCenter, setMapCenter] = useState(null); // updated when user searches a place
+  const [mapCenter, setMapCenter] = useState(null);
+  const [droppedPins, setDroppedPins] = useState([]);
   const s = makeStyles(colors);
 
   const selectedTheme = THEMES.find(t => t.key === theme) || THEMES[0];
+
+  // Called when user clicks the map or drags an existing pin
+  function handlePinDrop(pin, replaceIndex) {
+    setDroppedPins(prev => {
+      if (replaceIndex !== undefined) {
+        const next = [...prev];
+        next[replaceIndex] = pin;
+        return next;
+      }
+      return [...prev, pin];
+    });
+  }
+
+  function handlePinRemove(index) {
+    setDroppedPins(prev => prev.filter((_, i) => i !== index));
+  }
 
   const formPanel = (
     <ScrollView style={s.formScroll} contentContainerStyle={s.formContent} showsVerticalScrollIndicator={false}>
@@ -94,19 +110,31 @@ export default function CreateScreen() {
         <Text style={[s.modeLabel, competitive && s.modeLabelActive]}>Competitive</Text>
       </View>
 
-      {/* Divider */}
       <View style={s.divider} />
 
       {/* Checkpoints section */}
       <Text style={s.panelSubheading}>Checkpoints</Text>
-      <Text style={s.panelCaption}>Drop pins on the map or add manually</Text>
+      <Text style={s.panelCaption}>Click the map to drop a pin, drag to adjust position</Text>
 
-      {/* Empty state */}
-      <View style={s.emptyState}>
-        <Text style={s.emptyIcon}>📍</Text>
-        <Text style={s.emptyTitle}>No checkpoints yet</Text>
-        <Text style={s.emptyDesc}>Tap the map to drop your first pin</Text>
-      </View>
+      {droppedPins.length === 0 ? (
+        <View style={s.emptyState}>
+          <Text style={s.emptyIcon}>📍</Text>
+          <Text style={s.emptyTitle}>No checkpoints yet</Text>
+          <Text style={s.emptyDesc}>Click the map to drop your first pin</Text>
+        </View>
+      ) : (
+        <View style={s.pinList}>
+          {droppedPins.map((pin, i) => (
+            <View key={i} style={s.pinRow}>
+              <View style={s.pinBadge}><Text style={s.pinBadgeText}>{i + 1}</Text></View>
+              <Text style={s.pinAddress} numberOfLines={1}>{pin.address}</Text>
+              <TouchableOpacity onPress={() => handlePinRemove(i)} style={s.pinRemove}>
+                <Text style={s.pinRemoveText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+          ))}
+        </View>
+      )}
 
       {/* Action buttons */}
       <View style={s.actionRow}>
@@ -123,23 +151,15 @@ export default function CreateScreen() {
   if (Platform.OS === 'web') {
     return (
       <View style={s.webShell}>
-        {/* Map panel — Places search bar + overlay message float on top */}
         <View style={s.webMap}>
-          <HuntMap location={mapCenter} />
-          {/* Floating Places Autocomplete */}
-          <PlacesSearchBar
-            onPlaceSelected={place => setMapCenter({ latitude: place.latitude, longitude: place.longitude })}
-            placeholder="Search a location to start..."
+          <HuntMap
+            location={mapCenter}
+            droppedPins={droppedPins}
+            onPinDrop={handlePinDrop}
+            onPinRemove={handlePinRemove}
+            showPinDrop
           />
-          {/* Overlay hint — only show when no checkpoints dropped yet */}
-          <View style={s.mapOverlay} pointerEvents="none">
-            <View style={s.mapOverlayCard}>
-              <MapPin size={24} strokeWidth={1.5} color={palette.campfire} />
-              <Text style={s.mapOverlayText}>Tap the map to drop your first checkpoint</Text>
-            </View>
-          </View>
         </View>
-        {/* Form panel */}
         <View style={s.webForm}>
           {formPanel}
         </View>
@@ -151,7 +171,13 @@ export default function CreateScreen() {
   return (
     <View style={s.mobileShell}>
       <View style={s.mobileMap}>
-        <HuntMap />
+        <HuntMap
+          location={mapCenter}
+          droppedPins={droppedPins}
+          onPinDrop={handlePinDrop}
+          onPinRemove={handlePinRemove}
+          showPinDrop
+        />
       </View>
       {formPanel}
     </View>
@@ -160,19 +186,13 @@ export default function CreateScreen() {
 
 function makeStyles(colors) {
   return StyleSheet.create({
-    // Web
     webShell: { flex: 1, flexDirection: 'row', height: '100%' },
     webMap: { flex: 6, height: '100%', position: 'relative' },
     webForm: { flex: 4, borderLeftWidth: 1, borderLeftColor: colors.border, backgroundColor: colors.background },
-    mapOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, justifyContent: 'center', alignItems: 'center' },
-    mapOverlayCard: { backgroundColor: 'rgba(255,255,255,0.92)', borderRadius: borderRadius.lg, padding: spacing.lg, alignItems: 'center', gap: spacing.sm, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8 },
-    mapOverlayText: { fontSize: fontSize.body, fontFamily: 'Inter_600SemiBold', color: colors.textPrimary },
 
-    // Mobile
     mobileShell: { flex: 1 },
     mobileMap: { height: '40%' },
 
-    // Form
     formScroll: { flex: 1 },
     formContent: { padding: spacing.lg, paddingBottom: spacing.xxl },
     panelHeading: { fontSize: fontSize.section, fontFamily: 'Inter_700Bold', color: colors.textPrimary, marginBottom: spacing.lg },
@@ -182,7 +202,6 @@ function makeStyles(colors) {
     input: { backgroundColor: colors.surface, color: colors.textPrimary, borderRadius: borderRadius.md, padding: spacing.base, marginBottom: spacing.md, fontSize: fontSize.body, fontFamily: 'Inter_400Regular', borderWidth: 1, borderColor: colors.border },
     textarea: { height: 80, textAlignVertical: 'top' },
 
-    // Theme picker
     themePicker: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderRadius: borderRadius.md, borderWidth: 1, borderColor: colors.border, padding: spacing.base, marginBottom: spacing.xs, gap: spacing.sm },
     themeIcon: { fontSize: 18 },
     themeLabel: { flex: 1, fontSize: fontSize.body, fontFamily: 'Inter_400Regular', color: colors.textPrimary },
@@ -192,20 +211,25 @@ function makeStyles(colors) {
     themeOptionActive: { backgroundColor: colors.surfaceAlt },
     themeOptionActiveText: { fontFamily: 'Inter_600SemiBold', color: colors.primary },
 
-    // Mode toggle
     modeRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginBottom: spacing.lg },
     modeLabel: { fontSize: fontSize.body, fontFamily: 'Inter_400Regular', color: colors.textSecondary },
     modeLabelActive: { fontFamily: 'Inter_600SemiBold', color: colors.textPrimary },
 
     divider: { height: 1, backgroundColor: colors.border, marginVertical: spacing.lg },
 
-    // Empty state
     emptyState: { backgroundColor: colors.surfaceAlt, borderRadius: borderRadius.lg, padding: spacing.xl, alignItems: 'center', marginBottom: spacing.lg, borderWidth: 1, borderColor: colors.border, borderStyle: 'dashed' },
     emptyIcon: { fontSize: 40, marginBottom: spacing.sm },
     emptyTitle: { fontSize: fontSize.body, fontFamily: 'Inter_700Bold', color: colors.textPrimary, marginBottom: spacing.xs },
     emptyDesc: { fontSize: fontSize.caption, fontFamily: 'Inter_400Regular', color: colors.textSecondary },
 
-    // Buttons
+    pinList: { marginBottom: spacing.lg },
+    pinRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderRadius: borderRadius.md, borderWidth: 1, borderColor: colors.border, padding: spacing.sm, marginBottom: spacing.sm, gap: spacing.sm },
+    pinBadge: { width: 24, height: 24, borderRadius: 12, backgroundColor: palette.campfire, justifyContent: 'center', alignItems: 'center', flexShrink: 0 },
+    pinBadgeText: { color: '#fff', fontSize: 11, fontFamily: 'Inter_700Bold' },
+    pinAddress: { flex: 1, fontSize: fontSize.caption, fontFamily: 'Inter_400Regular', color: colors.textPrimary },
+    pinRemove: { padding: spacing.xs },
+    pinRemoveText: { fontSize: 13, color: colors.textSecondary },
+
     actionRow: { flexDirection: 'row', gap: spacing.md },
     secondaryButton: { flex: 1, borderWidth: 1.5, borderColor: colors.primary, borderRadius: borderRadius.md, padding: spacing.base, alignItems: 'center' },
     secondaryButtonText: { fontFamily: 'Inter_600SemiBold', color: colors.primary, fontSize: fontSize.body },
