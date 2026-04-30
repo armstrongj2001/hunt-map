@@ -30,7 +30,7 @@ function fixLeafletIcon() {
 function MapUpdater({ center }) {
   const map = useMap();
   useEffect(() => {
-    if (center) map.setView(center, 14);
+    if (center) map.flyTo(center, 14);
   }, [center]);
   return null;
 }
