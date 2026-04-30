@@ -7,6 +7,7 @@ import { MapPin, Sparkles } from 'lucide-react-native';
 import { useTheme, spacing, fontSize, borderRadius } from '../theme';
 import { palette } from '../theme/colors';
 import HuntMap from '../components/HuntMap';
+import PlacesSearchBar from '../components/PlacesSearchBar';
 
 const THEMES = [
   { key: 'custom',     label: 'Custom',     icon: '✏️' },
@@ -27,6 +28,7 @@ export default function CreateScreen() {
   const [theme, setTheme] = useState('custom');
   const [competitive, setCompetitive] = useState(false);
   const [showThemePicker, setShowThemePicker] = useState(false);
+  const [mapCenter, setMapCenter] = useState(null); // updated when user searches a place
   const s = makeStyles(colors);
 
   const selectedTheme = THEMES.find(t => t.key === theme) || THEMES[0];
@@ -121,9 +123,15 @@ export default function CreateScreen() {
   if (Platform.OS === 'web') {
     return (
       <View style={s.webShell}>
-        {/* Map panel with overlay message */}
+        {/* Map panel — Places search bar + overlay message float on top */}
         <View style={s.webMap}>
-          <HuntMap />
+          <HuntMap location={mapCenter} />
+          {/* Floating Places Autocomplete */}
+          <PlacesSearchBar
+            onPlaceSelected={place => setMapCenter({ latitude: place.latitude, longitude: place.longitude })}
+            placeholder="Search a location to start..."
+          />
+          {/* Overlay hint — only show when no checkpoints dropped yet */}
           <View style={s.mapOverlay} pointerEvents="none">
             <View style={s.mapOverlayCard}>
               <MapPin size={24} strokeWidth={1.5} color={palette.campfire} />
