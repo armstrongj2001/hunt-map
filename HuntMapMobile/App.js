@@ -7,6 +7,7 @@ import { ThemeProvider, useTheme } from './src/theme';
 import { isLoggedIn } from './src/api/auth';
 import AuthNavigator from './src/navigation/AuthNavigator';
 import AppNavigator from './src/navigation/AppNavigator';
+import WebLayout from './src/navigation/WebLayout';
 import LandingPage from './src/screens/LandingPage';
 
 function Root() {
@@ -42,11 +43,24 @@ function Root() {
     );
   }
 
+  const handleLogout = () => { setLoggedIn(false); setShowLanding(Platform.OS === 'web'); };
+
+  // Web: sidebar layout (no React Navigation tabs needed)
+  if (Platform.OS === 'web' && loggedIn) {
+    return (
+      <>
+        <StatusBar style={isDark ? 'light' : 'dark'} />
+        <WebLayout onLogout={handleLogout} />
+      </>
+    );
+  }
+
+  // Mobile: React Navigation with bottom tabs
   return (
     <NavigationContainer>
       <StatusBar style={isDark ? 'light' : 'dark'} />
       {loggedIn ? (
-        <AppNavigator onLogout={() => { setLoggedIn(false); setShowLanding(Platform.OS === 'web'); }} />
+        <AppNavigator onLogout={handleLogout} />
       ) : (
         <AuthNavigator onLoginSuccess={() => setLoggedIn(true)} />
       )}
