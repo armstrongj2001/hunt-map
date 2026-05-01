@@ -32,3 +32,27 @@ export async function fetchMyHunts() {
   const { data } = await client.get('/api/hunts/?mine=true');
   return data;
 }
+
+export async function fetchHunt(id) {
+  const { data } = await client.get(`/api/hunts/${id}/`);
+  return data;
+}
+
+export async function fetchCheckpoints(huntId) {
+  const { data } = await client.get(`/api/hunts/${huntId}/checkpoints/`);
+  return data;
+}
+
+export async function updateHunt(id, fields) {
+  const { data } = await client.patch(`/api/hunts/${id}/`, fields);
+  return data;
+}
+
+export async function deleteHunt(id) {
+  await client.delete(`/api/hunts/${id}/`);
+}
+
+export async function updateCheckpoint(huntId, cpId, fields) {
+  const { data } = await client.patch(`/api/hunts/${huntId}/checkpoints/${cpId}/`, fields);
+  return data;
+}

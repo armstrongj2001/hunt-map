@@ -26,9 +26,9 @@ const badgeStyles = StyleSheet.create({
   text: { fontSize: 11, fontFamily: 'Inter_500Medium' },
 });
 
-function HuntListItem({ hunt, colors }) {
+function HuntListItem({ hunt, colors, onPress }) {
   return (
-    <TouchableOpacity style={[itemStyles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+    <TouchableOpacity onPress={onPress} style={[itemStyles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
       <View style={itemStyles.top}>
         <Text style={[itemStyles.title, { color: colors.textPrimary }]} numberOfLines={1}>
           {hunt.title}
@@ -80,7 +80,7 @@ const EMPTY_STATES = {
   Completed: { icon: '🏆', title: 'No completed hunts yet', desc: 'Your finished adventures will appear here.' },
 };
 
-export default function PlayScreen() {
+export default function PlayScreen({ onNavigate }) {
   const { colors } = useTheme();
   const [activeTab, setActiveTab] = useState('Created');
   const [myHunts, setMyHunts] = useState([]);
@@ -135,7 +135,12 @@ export default function PlayScreen() {
     }
 
     return myHunts.map(hunt => (
-      <HuntListItem key={hunt.id} hunt={hunt} colors={colors} />
+      <HuntListItem
+        key={hunt.id}
+        hunt={hunt}
+        colors={colors}
+        onPress={() => onNavigate?.('HuntDetail', { huntId: hunt.id })}
+      />
     ));
   }
 
