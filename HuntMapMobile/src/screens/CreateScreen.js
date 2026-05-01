@@ -8,6 +8,7 @@ import { useTheme, spacing, fontSize, borderRadius } from '../theme';
 import { palette } from '../theme/colors';
 import HuntMap from '../components/HuntMap';
 import HuntChatPanel from '../components/HuntChatPanel';
+import LandmarkPanel from '../components/LandmarkPanel';
 
 const THEMES = [
   { key: 'custom',     label: 'Custom',     icon: '✏️' },
@@ -31,6 +32,7 @@ export default function CreateScreen() {
   const [userLocation, setUserLocation] = useState(null);
   const [mapCenter, setMapCenter] = useState(null);
   const [droppedPins, setDroppedPins] = useState([]);
+  const [activePin, setActivePin] = useState(null); // index of pin open in LandmarkPanel
   const [rightTab, setRightTab] = useState('form'); // 'form' | 'chat'
   const s = makeStyles(colors);
 
@@ -61,7 +63,7 @@ export default function CreateScreen() {
     }
   }
 
-  // Called when user clicks the map or drags an existing pin
+  // Called when user clicks the map (new pin) or drags an existing one
   function handlePinDrop(pin, replaceIndex) {
     setDroppedPins(prev => {
       if (replaceIndex !== undefined) {
@@ -69,12 +71,26 @@ export default function CreateScreen() {
         next[replaceIndex] = pin;
         return next;
       }
-      return [...prev, pin];
+      const next = [...prev, pin];
+      // Open the landmark panel for the newly dropped pin
+      setActivePin(next.length - 1);
+      return next;
     });
   }
 
   function handlePinRemove(index) {
     setDroppedPins(prev => prev.filter((_, i) => i !== index));
+    if (activePin === index) setActivePin(null);
+  }
+
+  // Save updated pin data (clue/hint/landmark) from LandmarkPanel
+  function handleCheckpointSave(index, updatedPin) {
+    setDroppedPins(prev => {
+      const next = [...prev];
+      next[index] = updatedPin;
+      return next;
+    });
+    setActivePin(null);
   }
 
   const formPanel = (
@@ -153,13 +169,20 @@ export default function CreateScreen() {
       ) : (
         <View style={s.pinList}>
           {droppedPins.map((pin, i) => (
-            <View key={i} style={s.pinRow}>
+            <TouchableOpacity key={i} style={[s.pinRow, activePin === i && s.pinRowActive]} onPress={() => setActivePin(i)}>
               <View style={s.pinBadge}><Text style={s.pinBadgeText}>{i + 1}</Text></View>
-              <Text style={s.pinAddress} numberOfLines={1}>{pin.address}</Text>
-              <TouchableOpacity onPress={() => handlePinRemove(i)} style={s.pinRemove}>
+              <View style={{ flex: 1 }}>
+                <Text style={s.pinAddress} numberOfLines={1}>{pin.address}</Text>
+                {pin.clue ? (
+                  <Text style={s.pinCluePreview} numberOfLines={1}>{pin.clue}</Text>
+                ) : (
+                  <Text style={s.pinClueEmpty}>Tap to add clue</Text>
+                )}
+              </View>
+              <TouchableOpacity onPress={() => handlePinRemove(i)} style={s.pinRemove} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                 <Text style={s.pinRemoveText}>✕</Text>
               </TouchableOpacity>
-            </View>
+            </TouchableOpacity>
           ))}
         </View>
       )}
@@ -179,15 +202,26 @@ export default function CreateScreen() {
   if (Platform.OS === 'web') {
     return (
       <View style={s.webShell}>
-        {/* Map panel */}
+        {/* Map panel + landmark panel stacked vertically */}
         <View style={s.webMap}>
-          <HuntMap
-            location={mapCenter || userLocation}
-            droppedPins={droppedPins}
-            onPinDrop={handlePinDrop}
-            onPinRemove={handlePinRemove}
-            showPinDrop
-          />
+          <View style={{ flex: 1 }}>
+            <HuntMap
+              location={mapCenter || userLocation}
+              droppedPins={droppedPins}
+              onPinDrop={handlePinDrop}
+              onPinRemove={handlePinRemove}
+              showPinDrop
+            />
+          </View>
+          {activePin !== null && (
+            <LandmarkPanel
+              pin={droppedPins[activePin]}
+              pinIndex={activePin}
+              huntTheme={theme}
+              onSave={handleCheckpointSave}
+              onDismiss={() => setActivePin(null)}
+            />
+          )}
         </View>
 
         {/* Right panel: Form / AI Chat tabs */}
@@ -277,6 +311,9 @@ function makeStyles(colors) {
 
     pinList: { marginBottom: spacing.lg },
     pinRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderRadius: borderRadius.md, borderWidth: 1, borderColor: colors.border, padding: spacing.sm, marginBottom: spacing.sm, gap: spacing.sm },
+    pinRowActive: { borderColor: palette.campfire, backgroundColor: palette.campfire + '08' },
+    pinCluePreview: { fontSize: 11, fontFamily: 'Inter_400Regular', color: colors.textSecondary, marginTop: 2 },
+    pinClueEmpty: { fontSize: 11, fontFamily: 'Inter_400Regular', color: palette.stone, marginTop: 2, fontStyle: 'italic' },
     pinBadge: { width: 24, height: 24, borderRadius: 12, backgroundColor: palette.campfire, justifyContent: 'center', alignItems: 'center', flexShrink: 0 },
     pinBadgeText: { color: '#fff', fontSize: 11, fontFamily: 'Inter_700Bold' },
     pinAddress: { flex: 1, fontSize: fontSize.caption, fontFamily: 'Inter_400Regular', color: colors.textPrimary },
