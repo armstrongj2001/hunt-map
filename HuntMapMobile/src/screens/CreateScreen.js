@@ -3,10 +3,10 @@ import {
   View, Text, StyleSheet, TextInput, ScrollView,
   TouchableOpacity, Switch, Platform,
 } from 'react-native';
-import { MapPin } from 'lucide-react-native';
 import { useTheme, spacing, fontSize, borderRadius } from '../theme';
 import { palette } from '../theme/colors';
 import HuntMap from '../components/HuntMap';
+import HuntChatPanel from '../components/HuntChatPanel';
 
 const THEMES = [
   { key: 'custom',     label: 'Custom',     icon: '✏️' },
@@ -29,6 +29,7 @@ export default function CreateScreen() {
   const [showThemePicker, setShowThemePicker] = useState(false);
   const [mapCenter, setMapCenter] = useState(null);
   const [droppedPins, setDroppedPins] = useState([]);
+  const [rightTab, setRightTab] = useState('form'); // 'form' | 'chat'
   const s = makeStyles(colors);
 
   const selectedTheme = THEMES.find(t => t.key === theme) || THEMES[0];
@@ -151,6 +152,7 @@ export default function CreateScreen() {
   if (Platform.OS === 'web') {
     return (
       <View style={s.webShell}>
+        {/* Map panel */}
         <View style={s.webMap}>
           <HuntMap
             location={mapCenter}
@@ -160,8 +162,25 @@ export default function CreateScreen() {
             showPinDrop
           />
         </View>
-        <View style={s.webForm}>
-          {formPanel}
+
+        {/* Right panel: Form / AI Chat tabs */}
+        <View style={s.webRight}>
+          <View style={s.tabBar}>
+            <TouchableOpacity
+              style={[s.tab, rightTab === 'form' && s.tabActive]}
+              onPress={() => setRightTab('form')}
+            >
+              <Text style={[s.tabText, rightTab === 'form' && s.tabTextActive]}>Hunt Details</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[s.tab, rightTab === 'chat' && s.tabActive]}
+              onPress={() => setRightTab('chat')}
+            >
+              <Text style={[s.tabText, rightTab === 'chat' && s.tabTextActive]}>🤖 AI Designer</Text>
+            </TouchableOpacity>
+          </View>
+
+          {rightTab === 'form' ? formPanel : <HuntChatPanel />}
         </View>
       </View>
     );
@@ -188,7 +207,14 @@ function makeStyles(colors) {
   return StyleSheet.create({
     webShell: { flex: 1, flexDirection: 'row', height: '100%' },
     webMap: { flex: 6, height: '100%', position: 'relative' },
-    webForm: { flex: 4, borderLeftWidth: 1, borderLeftColor: colors.border, backgroundColor: colors.background },
+    webRight: { flex: 4, flexDirection: 'column', borderLeftWidth: 1, borderLeftColor: colors.border, backgroundColor: colors.background },
+
+    // Tab bar
+    tabBar: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: colors.border, backgroundColor: colors.surface },
+    tab: { flex: 1, paddingVertical: spacing.md, alignItems: 'center' },
+    tabActive: { borderBottomWidth: 2, borderBottomColor: palette.campfire },
+    tabText: { fontSize: fontSize.caption, fontFamily: 'Inter_500Medium', color: colors.textSecondary },
+    tabTextActive: { fontFamily: 'Inter_600SemiBold', color: palette.campfire },
 
     mobileShell: { flex: 1 },
     mobileMap: { height: '40%' },

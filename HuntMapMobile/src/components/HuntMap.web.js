@@ -62,6 +62,9 @@ export default function HuntMap({
   // InfoWindow state: which dropped pin is selected
   const [activePin, setActivePin] = useState(null);
 
+  // Hide search bar when street view is open (it covers the back button)
+  const [streetViewVisible, setStreetViewVisible] = useState(false);
+
   // Fly to location when it changes (GPS or search result)
   const prevLocation = useRef(null);
   useEffect(() => {
@@ -76,11 +79,15 @@ export default function HuntMap({
 
   const onLoad = useCallback((map) => {
     mapRef.current = map;
-    // If we already have a location on first load, fly there
     if (location) {
       map.panTo({ lat: location.latitude, lng: location.longitude });
       map.setZoom(14);
     }
+    // Hide the search bar whenever street view is open
+    const sv = map.getStreetView();
+    sv.addListener('visible_changed', () => {
+      setStreetViewVisible(sv.getVisible());
+    });
   }, []); // stable — no deps
 
   const onUnmount = useCallback(() => {
@@ -126,21 +133,23 @@ export default function HuntMap({
 
   return (
     <div style={containerStyle}>
-      {/* Floating Places Autocomplete */}
-      <div style={searchBarStyle}>
-        <span style={{ fontSize: 15, flexShrink: 0 }}>🔍</span>
-        <Autocomplete
-          onLoad={(ac) => { autocompleteRef.current = ac; }}
-          onPlaceChanged={handlePlaceSelected}
-          options={{ types: ['geocode', 'establishment'] }}
-        >
-          <input
-            type="text"
-            placeholder="Search a location…"
-            style={searchInputStyle}
-          />
-        </Autocomplete>
-      </div>
+      {/* Floating Places Autocomplete — hidden during street view */}
+      {!streetViewVisible && (
+        <div style={searchBarStyle}>
+          <span style={{ fontSize: 15, flexShrink: 0 }}>🔍</span>
+          <Autocomplete
+            onLoad={(ac) => { autocompleteRef.current = ac; }}
+            onPlaceChanged={handlePlaceSelected}
+            options={{ types: ['geocode', 'establishment'] }}
+          >
+            <input
+              type="text"
+              placeholder="Search a location…"
+              style={searchInputStyle}
+            />
+          </Autocomplete>
+        </div>
+      )}
 
       <GoogleMap
         mapContainerStyle={{ width: '100%', height: '100%' }}
@@ -241,9 +250,10 @@ const containerStyle = {
 const searchBarStyle = {
   position: 'absolute',
   top: 16,
-  left: 16,
-  right: 56, // leave room for Google's controls on right
+  left: '50%',
+  transform: 'translateX(-50%)',
   zIndex: 10,
+  width: 340,
   display: 'flex',
   alignItems: 'center',
   backgroundColor: 'rgba(255,255,255,0.97)',
