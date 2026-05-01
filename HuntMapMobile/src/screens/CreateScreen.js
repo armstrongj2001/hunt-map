@@ -34,6 +34,21 @@ export default function CreateScreen() {
 
   const selectedTheme = THEMES.find(t => t.key === theme) || THEMES[0];
 
+  // Called when HuntBot returns a hunt with checkpoint coordinates
+  function handleHuntGenerated(huntData) {
+    if (huntData.title) setTitle(huntData.title);
+    if (huntData.center) setMapCenter(huntData.center);
+    if (huntData.checkpoints?.length) {
+      setDroppedPins(huntData.checkpoints.map(cp => ({
+        latitude: cp.latitude,
+        longitude: cp.longitude,
+        address: cp.title,
+        clue: cp.clue,
+        hint: cp.hint,
+      })));
+    }
+  }
+
   // Called when user clicks the map or drags an existing pin
   function handlePinDrop(pin, replaceIndex) {
     setDroppedPins(prev => {
@@ -180,7 +195,7 @@ export default function CreateScreen() {
             </TouchableOpacity>
           </View>
 
-          {rightTab === 'form' ? formPanel : <HuntChatPanel />}
+          {rightTab === 'form' ? formPanel : <HuntChatPanel onHuntGenerated={handleHuntGenerated} />}
         </View>
       </View>
     );

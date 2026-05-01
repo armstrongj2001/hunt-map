@@ -13,11 +13,28 @@ const STARTERS = [
   'Build a history mystery tour around the Capitol building',
 ];
 
+// Extract the hunt-data JSON block from the AI response
+function parseHuntData(text) {
+  const match = text.match(/```hunt-data\n([\s\S]*?)\n```/);
+  if (!match) return null;
+  try {
+    return JSON.parse(match[1]);
+  } catch {
+    return null;
+  }
+}
+
+// Remove the hunt-data block so the chat bubble only shows narrative text
+function stripHuntData(text) {
+  return text.replace(/```hunt-data\n[\s\S]*?\n```/g, '').trim();
+}
+
 export default function HuntChatPanel({ onHuntGenerated }) {
   const { colors } = useTheme();
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [lastPinCount, setLastPinCount] = useState(0);
   const scrollRef = useRef(null);
   const s = makeStyles(colors);
 
@@ -30,17 +47,30 @@ export default function HuntChatPanel({ onHuntGenerated }) {
     if (!content) return;
     setInput('');
 
-    const nextMessages = [...messages, { role: 'user', content }];
-    setMessages(nextMessages);
+    // Store raw messages for API (must include the hunt-data block so context is preserved)
+    const rawMessages = [...messages.map(m => ({ role: m.role, content: m.raw })), { role: 'user', content }];
+    setMessages(prev => [...prev, { role: 'user', content, raw: content }]);
     setLoading(true);
 
     try {
-      const reply = await sendChatMessage(nextMessages);
-      setMessages(prev => [...prev, { role: 'assistant', content: reply }]);
-    } catch (e) {
+      const reply = await sendChatMessage(rawMessages);
+
+      // Parse structured data out before displaying
+      const huntData = parseHuntData(reply);
+      const displayText = stripHuntData(reply);
+
+      setMessages(prev => [...prev, { role: 'assistant', content: displayText, raw: reply, huntData }]);
+
+      // If the response contained checkpoint data, push it to the map
+      if (huntData?.checkpoints?.length && onHuntGenerated) {
+        setLastPinCount(huntData.checkpoints.length);
+        onHuntGenerated(huntData);
+      }
+    } catch {
       setMessages(prev => [...prev, {
         role: 'assistant',
         content: "Sorry, I couldn't reach the AI right now. Check your connection and try again.",
+        raw: '',
       }]);
     } finally {
       setLoading(false);
@@ -55,7 +85,7 @@ export default function HuntChatPanel({ onHuntGenerated }) {
       {/* Header */}
       <View style={s.header}>
         <Text style={s.headerTitle}>🤖 HuntBot</Text>
-        <Text style={s.headerSub}>AI hunt designer</Text>
+        <Text style={s.headerSub}>AI hunt designer — describe your hunt and I'll build it</Text>
       </View>
 
       {/* Message list */}
@@ -71,12 +101,12 @@ export default function HuntChatPanel({ onHuntGenerated }) {
             <Text style={s.emptyIcon}>🧭</Text>
             <Text style={s.emptyTitle}>Tell me about your hunt</Text>
             <Text style={s.emptyDesc}>
-              Describe a theme, location, or mood and I'll design it for you.
+              Describe a theme, location, or mood and I'll design the checkpoints and drop them on the map.
             </Text>
             <View style={s.starters}>
-              {STARTERS.map((s2, i) => (
-                <TouchableOpacity key={i} style={s.starterBtn} onPress={() => send(s2)}>
-                  <Text style={s.starterText}>{s2}</Text>
+              {STARTERS.map((starter, i) => (
+                <TouchableOpacity key={i} style={s.starterBtn} onPress={() => send(starter)}>
+                  <Text style={s.starterText}>{starter}</Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -84,13 +114,24 @@ export default function HuntChatPanel({ onHuntGenerated }) {
         )}
 
         {messages.map((msg, i) => (
-          <View key={i} style={[s.bubble, msg.role === 'user' ? s.bubbleUser : s.bubbleBot]}>
-            {msg.role === 'assistant' && (
-              <Text style={s.bubbleLabel}>HuntBot</Text>
+          <View key={i}>
+            <View style={[s.bubble, msg.role === 'user' ? s.bubbleUser : s.bubbleBot]}>
+              {msg.role === 'assistant' && (
+                <Text style={s.bubbleLabel}>HuntBot</Text>
+              )}
+              <Text style={[s.bubbleText, msg.role === 'user' ? s.bubbleTextUser : s.bubbleTextBot]}>
+                {msg.content}
+              </Text>
+            </View>
+
+            {/* Pin confirmation badge shown below bot messages that had checkpoint data */}
+            {msg.role === 'assistant' && msg.huntData?.checkpoints?.length > 0 && (
+              <View style={s.pinBadge}>
+                <Text style={s.pinBadgeText}>
+                  📍 {msg.huntData.checkpoints.length} checkpoints dropped on the map
+                </Text>
+              </View>
             )}
-            <Text style={[s.bubbleText, msg.role === 'user' ? s.bubbleTextUser : s.bubbleTextBot]}>
-              {msg.content}
-            </Text>
           </View>
         ))}
 
@@ -133,8 +174,6 @@ function makeStyles(colors) {
     container: {
       flex: 1,
       backgroundColor: colors.background,
-      borderLeftWidth: 1,
-      borderLeftColor: colors.border,
     },
     header: {
       paddingHorizontal: spacing.lg,
@@ -161,7 +200,6 @@ function makeStyles(colors) {
       flexGrow: 1,
     },
 
-    // Empty state
     emptyState: { flex: 1, alignItems: 'center', paddingTop: spacing.xl },
     emptyIcon: { fontSize: 40, marginBottom: spacing.sm },
     emptyTitle: {
@@ -192,10 +230,9 @@ function makeStyles(colors) {
       color: colors.textPrimary,
     },
 
-    // Bubbles
     bubble: {
-      marginBottom: spacing.sm,
-      maxWidth: '85%',
+      marginBottom: spacing.xs,
+      maxWidth: '88%',
       borderRadius: borderRadius.lg,
       padding: spacing.base,
     },
@@ -227,7 +264,24 @@ function makeStyles(colors) {
     bubbleTextUser: { color: '#FFFFFF' },
     bubbleTextBot: { color: colors.textPrimary },
 
-    // Input row
+    // Shown below bot messages that dropped pins
+    pinBadge: {
+      alignSelf: 'flex-start',
+      backgroundColor: palette.campfire + '18',
+      borderRadius: borderRadius.md,
+      borderWidth: 1,
+      borderColor: palette.campfire + '40',
+      paddingHorizontal: spacing.base,
+      paddingVertical: spacing.xs,
+      marginBottom: spacing.md,
+      marginLeft: 2,
+    },
+    pinBadgeText: {
+      fontSize: 12,
+      fontFamily: 'Inter_600SemiBold',
+      color: palette.campfire,
+    },
+
     inputRow: {
       flexDirection: 'row',
       alignItems: 'flex-end',
