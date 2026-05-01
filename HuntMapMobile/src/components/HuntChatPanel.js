@@ -192,15 +192,21 @@ export default function HuntChatPanel({ onHuntGenerated }) {
       <View style={s.inputRow}>
         <TextInput
           style={s.input}
-          placeholder="Ask HuntBot anything…"
+          placeholder="Ask HuntBot anything…  (Shift+Enter for new line)"
           placeholderTextColor={palette.stone}
           value={input}
           onChangeText={setInput}
           multiline
           returnKeyType="send"
-          onSubmitEditing={() => send()}
+          onSubmitEditing={Platform.OS !== 'web' ? () => send() : undefined}
           blurOnSubmit={false}
           editable={!loading}
+          onKeyPress={Platform.OS === 'web' ? (e) => {
+            if (e.nativeEvent.key === 'Enter' && !e.nativeEvent.shiftKey) {
+              e.preventDefault?.();
+              send();
+            }
+          } : undefined}
         />
         <TouchableOpacity
           style={[s.sendBtn, (!input.trim() || loading) && s.sendBtnDisabled]}
