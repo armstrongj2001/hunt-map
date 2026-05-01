@@ -62,6 +62,9 @@ export default function HuntMap({
   // InfoWindow state: which dropped pin is selected
   const [activePin, setActivePin] = useState(null);
 
+  // Visual marker for the current search result
+  const [searchPin, setSearchPin] = useState(null);
+
   // Hide search bar when street view is open (it covers the back button)
   const [streetViewVisible, setStreetViewVisible] = useState(false);
 
@@ -135,8 +138,33 @@ export default function HuntMap({
     if (!place?.geometry?.location) return;
     const lat = place.geometry.location.lat();
     const lng = place.geometry.location.lng();
+    const name = place.name || place.formatted_address || 'Search result';
     mapRef.current?.panTo({ lat, lng });
     mapRef.current?.setZoom(15);
+    setSearchPin({ lat, lng, name });
+  }
+
+  // Geocode fallback: user typed an address and pressed Enter without picking
+  // a dropdown suggestion — send it through the Geocoding API directly
+  async function handleSearchKeyDown(e) {
+    if (e.key !== 'Enter' || e.shiftKey) return;
+    const query = e.target.value?.trim();
+    if (!query || searchPin) return; // already handled by onPlaceChanged
+    try {
+      const res = await fetch(
+        `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(query)}&key=${API_KEY}`
+      );
+      const data = await res.json();
+      const result = data.results?.[0];
+      if (!result) return;
+      const { lat, lng } = result.geometry.location;
+      const name = result.formatted_address;
+      mapRef.current?.panTo({ lat, lng });
+      mapRef.current?.setZoom(15);
+      setSearchPin({ lat, lng, name });
+    } catch {
+      // silent fail — user sees no change
+    }
   }
 
   const center = location
@@ -166,6 +194,8 @@ export default function HuntMap({
               type="text"
               placeholder="Search a location…"
               style={searchInputStyle}
+              onKeyDown={handleSearchKeyDown}
+              onChange={() => setSearchPin(null)}
             />
           </Autocomplete>
         </div>
@@ -195,6 +225,28 @@ export default function HuntMap({
               strokeWeight: 2,
             }}
           />
+        )}
+
+        {/* Search result pin — shown when user searches a location */}
+        {searchPin && (
+          <Marker
+            position={{ lat: searchPin.lat, lng: searchPin.lng }}
+            title={searchPin.name}
+            icon={{
+              path: window.google.maps.SymbolPath.CIRCLE,
+              scale: 10,
+              fillColor: '#E8734A',
+              fillOpacity: 1,
+              strokeColor: '#ffffff',
+              strokeWeight: 2,
+            }}
+          >
+            <InfoWindow onCloseClick={() => setSearchPin(null)}>
+              <div style={{ fontFamily: 'Inter, sans-serif', fontSize: 13, fontWeight: 600, maxWidth: 200 }}>
+                {searchPin.name}
+              </div>
+            </InfoWindow>
+          </Marker>
         )}
 
         {/* Read-only markers passed in from parent */}

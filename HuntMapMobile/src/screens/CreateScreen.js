@@ -241,7 +241,13 @@ export default function CreateScreen() {
             </TouchableOpacity>
           </View>
 
-          {rightTab === 'form' ? formPanel : <HuntChatPanel onHuntGenerated={handleHuntGenerated} />}
+          {/* Both panels stay mounted — display:none preserves state on tab switch */}
+          <View style={[{ flex: 1 }, rightTab !== 'form' && { display: 'none' }]}>
+            {formPanel}
+          </View>
+          <View style={[{ flex: 1 }, rightTab !== 'chat' && { display: 'none' }]}>
+            <HuntChatPanel onHuntGenerated={handleHuntGenerated} />
+          </View>
         </View>
       </View>
     );
