@@ -79,16 +79,18 @@ export default function HuntMap({
 
   const onLoad = useCallback((map) => {
     mapRef.current = map;
-    if (location) {
-      map.panTo({ lat: location.latitude, lng: location.longitude });
-      map.setZoom(14);
-    }
-    // Hide the search bar whenever street view is open
+    // Explicitly set center on mount — defaultCenter isn't reliable in @react-google-maps/api
+    const initialCenter = location
+      ? { lat: location.latitude, lng: location.longitude }
+      : DEFAULT_CENTER;
+    map.setCenter(initialCenter);
+    map.setZoom(location ? 14 : DEFAULT_ZOOM);
+
     const sv = map.getStreetView();
     sv.addListener('visible_changed', () => {
       setStreetViewVisible(sv.getVisible());
     });
-  }, []); // stable — no deps
+  }, []); // stable — captures nothing, uses refs/defaults
 
   const onUnmount = useCallback(() => {
     mapRef.current = null;
@@ -153,8 +155,8 @@ export default function HuntMap({
 
       <GoogleMap
         mapContainerStyle={{ width: '100%', height: '100%' }}
-        defaultCenter={center}
-        defaultZoom={DEFAULT_ZOOM}
+        center={DEFAULT_CENTER}
+        zoom={DEFAULT_ZOOM}
         options={mapOptions}
         onLoad={onLoad}
         onUnmount={onUnmount}

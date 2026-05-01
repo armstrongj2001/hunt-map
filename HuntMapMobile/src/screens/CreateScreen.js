@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TextInput, ScrollView,
   TouchableOpacity, Switch, Platform,
 } from 'react-native';
+import * as Location from 'expo-location';
 import { useTheme, spacing, fontSize, borderRadius } from '../theme';
 import { palette } from '../theme/colors';
 import HuntMap from '../components/HuntMap';
@@ -27,10 +28,21 @@ export default function CreateScreen() {
   const [theme, setTheme] = useState('custom');
   const [competitive, setCompetitive] = useState(false);
   const [showThemePicker, setShowThemePicker] = useState(false);
+  const [userLocation, setUserLocation] = useState(null);
   const [mapCenter, setMapCenter] = useState(null);
   const [droppedPins, setDroppedPins] = useState([]);
   const [rightTab, setRightTab] = useState('form'); // 'form' | 'chat'
   const s = makeStyles(colors);
+
+  useEffect(() => {
+    (async () => {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status === 'granted') {
+        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        setUserLocation(loc.coords);
+      }
+    })();
+  }, []);
 
   const selectedTheme = THEMES.find(t => t.key === theme) || THEMES[0];
 
@@ -170,7 +182,7 @@ export default function CreateScreen() {
         {/* Map panel */}
         <View style={s.webMap}>
           <HuntMap
-            location={mapCenter}
+            location={mapCenter || userLocation}
             droppedPins={droppedPins}
             onPinDrop={handlePinDrop}
             onPinRemove={handlePinRemove}
@@ -206,7 +218,7 @@ export default function CreateScreen() {
     <View style={s.mobileShell}>
       <View style={s.mobileMap}>
         <HuntMap
-          location={mapCenter}
+          location={mapCenter || userLocation}
           droppedPins={droppedPins}
           onPinDrop={handlePinDrop}
           onPinRemove={handlePinRemove}
