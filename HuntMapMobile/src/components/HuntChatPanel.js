@@ -6,6 +6,7 @@ import {
 import { useTheme, spacing, fontSize, borderRadius } from '../theme';
 import { palette } from '../theme/colors';
 import { sendChatMessage } from '../api/ai';
+import { createHuntWithCheckpoints } from '../api/hunts';
 
 const STARTERS = [
   'Design me a Halloween hunt near Cheesman Park with 5 stops',
@@ -34,7 +35,7 @@ export default function HuntChatPanel({ onHuntGenerated }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [lastPinCount, setLastPinCount] = useState(0);
+  const [savedIds, setSavedIds] = useState({}); // message index → 'saving'|'saved'|'dismissed'
   const scrollRef = useRef(null);
   const s = makeStyles(colors);
 
@@ -63,7 +64,6 @@ export default function HuntChatPanel({ onHuntGenerated }) {
 
       // If the response contained checkpoint data, push it to the map
       if (huntData?.checkpoints?.length && onHuntGenerated) {
-        setLastPinCount(huntData.checkpoints.length);
         onHuntGenerated(huntData);
       }
     } catch {
@@ -75,6 +75,23 @@ export default function HuntChatPanel({ onHuntGenerated }) {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function saveHunt(index, huntData) {
+    setSavedIds(prev => ({ ...prev, [index]: 'saving' }));
+    try {
+      await createHuntWithCheckpoints({
+        title: huntData.title,
+        checkpoints: huntData.checkpoints,
+      });
+      setSavedIds(prev => ({ ...prev, [index]: 'saved' }));
+    } catch {
+      setSavedIds(prev => ({ ...prev, [index]: null }));
+    }
+  }
+
+  function dismissHunt(index) {
+    setSavedIds(prev => ({ ...prev, [index]: 'dismissed' }));
   }
 
   return (
@@ -124,12 +141,40 @@ export default function HuntChatPanel({ onHuntGenerated }) {
               </Text>
             </View>
 
-            {/* Pin confirmation badge shown below bot messages that had checkpoint data */}
+            {/* Save / dismiss row for bot messages with checkpoint data */}
             {msg.role === 'assistant' && msg.huntData?.checkpoints?.length > 0 && (
-              <View style={s.pinBadge}>
-                <Text style={s.pinBadgeText}>
-                  📍 {msg.huntData.checkpoints.length} checkpoints dropped on the map
-                </Text>
+              <View style={s.actionRow}>
+                <View style={s.pinBadge}>
+                  <Text style={s.pinBadgeText}>
+                    📍 {msg.huntData.checkpoints.length} checkpoints on map
+                  </Text>
+                </View>
+
+                {savedIds[i] === 'saved' ? (
+                  <View style={s.savedBadge}>
+                    <Text style={s.savedBadgeText}>✓ Saved to library</Text>
+                  </View>
+                ) : savedIds[i] === 'dismissed' ? (
+                  <View style={s.dismissedBadge}>
+                    <Text style={s.dismissedBadgeText}>Dismissed</Text>
+                  </View>
+                ) : (
+                  <View style={s.thumbRow}>
+                    <TouchableOpacity
+                      style={s.thumbBtn}
+                      onPress={() => saveHunt(i, msg.huntData)}
+                      disabled={savedIds[i] === 'saving'}
+                    >
+                      {savedIds[i] === 'saving'
+                        ? <ActivityIndicator size="small" color={palette.campfire} />
+                        : <Text style={s.thumbIcon}>👍</Text>
+                      }
+                    </TouchableOpacity>
+                    <TouchableOpacity style={s.thumbBtn} onPress={() => dismissHunt(i)}>
+                      <Text style={s.thumbIcon}>👎</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
               </View>
             )}
           </View>
@@ -264,22 +309,64 @@ function makeStyles(colors) {
     bubbleTextUser: { color: '#FFFFFF' },
     bubbleTextBot: { color: colors.textPrimary },
 
-    // Shown below bot messages that dropped pins
+    // Action row below bot messages with checkpoint data
+    actionRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      flexWrap: 'wrap',
+      gap: spacing.sm,
+      marginBottom: spacing.md,
+      marginLeft: 2,
+    },
     pinBadge: {
-      alignSelf: 'flex-start',
       backgroundColor: palette.campfire + '18',
       borderRadius: borderRadius.md,
       borderWidth: 1,
       borderColor: palette.campfire + '40',
       paddingHorizontal: spacing.base,
       paddingVertical: spacing.xs,
-      marginBottom: spacing.md,
-      marginLeft: 2,
     },
     pinBadgeText: {
       fontSize: 12,
       fontFamily: 'Inter_600SemiBold',
       color: palette.campfire,
+    },
+    thumbRow: {
+      flexDirection: 'row',
+      gap: spacing.xs,
+    },
+    thumbBtn: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    thumbIcon: { fontSize: 16 },
+    savedBadge: {
+      backgroundColor: '#1A3C3418',
+      borderRadius: borderRadius.md,
+      borderWidth: 1,
+      borderColor: '#1A3C3440',
+      paddingHorizontal: spacing.base,
+      paddingVertical: spacing.xs,
+    },
+    savedBadgeText: {
+      fontSize: 12,
+      fontFamily: 'Inter_600SemiBold',
+      color: palette.forest,
+    },
+    dismissedBadge: {
+      paddingHorizontal: spacing.base,
+      paddingVertical: spacing.xs,
+    },
+    dismissedBadgeText: {
+      fontSize: 12,
+      fontFamily: 'Inter_400Regular',
+      color: colors.textSecondary,
     },
 
     inputRow: {
