@@ -30,6 +30,7 @@ INSTALLED_APPS = [
     # Our apps
     'users',
     'hunts',
+    'ai',
 ]
 
 MIDDLEWARE = [
