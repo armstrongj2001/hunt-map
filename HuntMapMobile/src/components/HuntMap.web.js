@@ -65,6 +65,9 @@ export default function HuntMap({
   // Hide search bar when street view is open (it covers the back button)
   const [streetViewVisible, setStreetViewVisible] = useState(false);
 
+  // Current location button state
+  const [locating, setLocating] = useState(false);
+
   // Fly to location when it changes (GPS or search result)
   const prevLocation = useRef(null);
   useEffect(() => {
@@ -110,6 +113,21 @@ export default function HuntMap({
     const lng = e.latLng.lng();
     const address = await reverseGeocode(lat, lng);
     onPinDrop({ latitude: lat, longitude: lng, address }, index);
+  }
+
+  function flyToCurrentLocation() {
+    if (!navigator.geolocation) return;
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { latitude: lat, longitude: lng } = pos.coords;
+        mapRef.current?.panTo({ lat, lng });
+        mapRef.current?.setZoom(15);
+        setLocating(false);
+      },
+      () => setLocating(false),
+      { enableHighAccuracy: true, timeout: 8000 }
+    );
   }
 
   function handlePlaceSelected() {
@@ -232,6 +250,18 @@ export default function HuntMap({
         ))}
       </GoogleMap>
 
+      {/* Current location button — bottom-left, clear of Google's controls */}
+      {!streetViewVisible && (
+        <button
+          onClick={flyToCurrentLocation}
+          disabled={locating}
+          title="Fly to my current location"
+          style={locateBtnStyle(locating)}
+        >
+          {locating ? '…' : '◎'}
+        </button>
+      )}
+
       {/* Hint overlay when pin-drop mode is active and no pins yet */}
       {showPinDrop && droppedPins.length === 0 && (
         <div style={hintStyle} onClick={(e) => e.stopPropagation()}>
@@ -281,6 +311,29 @@ const infoBubbleStyle = {
   fontFamily: 'Inter, system-ui, sans-serif',
   padding: '4px 2px',
 };
+
+function locateBtnStyle(locating) {
+  return {
+    position: 'absolute',
+    bottom: 120,
+    left: 16,
+    zIndex: 10,
+    width: 40,
+    height: 40,
+    borderRadius: '50%',
+    backgroundColor: 'rgba(255,255,255,0.97)',
+    border: 'none',
+    boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+    cursor: locating ? 'default' : 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: 20,
+    color: locating ? '#9CA3AF' : '#1A3C34',
+    transition: 'transform 150ms ease, box-shadow 150ms ease',
+    fontFamily: 'system-ui, sans-serif',
+  };
+}
 
 const removeButtonStyle = {
   border: 'none',
