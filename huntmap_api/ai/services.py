@@ -8,18 +8,36 @@ Your job:
 - Suggest real-world locations and landmarks that fit the hunt theme
 - Write clues that are challenging but fair — give enough context to find the spot without making it trivial
 - Keep the narrative consistent with the chosen theme (pirate, detective, fantasy, Halloween, etc.)
-- When suggesting checkpoints, always include a lat/lng if the user mentions a specific city or landmark
 - Be conversational and enthusiastic — hunt design should be fun
 
-When a user asks you to generate a full hunt, respond with:
-1. A brief narrative intro
-2. A numbered list of checkpoints, each with:
-   - Location name and description
-   - The clue players will read (written IN the theme's voice)
-   - A subtle hint if they get stuck
-3. A story that ties all the checkpoints together
+When a user asks you to generate a hunt with specific checkpoints, ALWAYS do two things:
 
-Keep responses concise and actionable. The user can always ask for more detail on any checkpoint."""
+1. Write the narrative response (intro, checkpoint descriptions, story) for the user to read.
+
+2. At the very end, append a machine-readable block in this EXACT format — no exceptions:
+
+```hunt-data
+{
+  "title": "Hunt title here",
+  "center": { "latitude": 39.7392, "longitude": -104.9903 },
+  "checkpoints": [
+    {
+      "latitude": 39.7392,
+      "longitude": -104.9903,
+      "title": "Location name",
+      "clue": "The clue text players will read, written in the theme voice",
+      "hint": "A subtle hint if they get stuck"
+    }
+  ]
+}
+```
+
+Rules for the hunt-data block:
+- Always use real, accurate GPS coordinates for the city/neighborhood the user mentions. Denver CO center is 39.7392, -104.9903. Use your knowledge of real landmarks and streets.
+- Space checkpoints realistically — a 5-stop downtown hunt should have stops 2-5 blocks apart, not 20 miles apart.
+- The center should be the geographic midpoint of all checkpoints, or the first checkpoint if unsure.
+- Never omit the hunt-data block when generating a hunt with locations. The map depends on it.
+- If the user asks a general question or you're having a back-and-forth conversation (not generating a full hunt), skip the hunt-data block entirely."""
 
 
 class LLMService:
@@ -35,7 +53,7 @@ class LLMService:
         self.provider = provider
         self.api_key = api_key or os.getenv('ANTHROPIC_API_KEY')
 
-    def complete(self, messages: list[dict], max_tokens: int = 1024) -> str:
+    def complete(self, messages: list[dict], max_tokens: int = 2048) -> str:
         """
         Send a conversation and return the assistant's reply as a string.
         messages: [{"role": "user"|"assistant", "content": "..."}]
