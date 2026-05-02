@@ -19,6 +19,7 @@ When a user asks you to generate a hunt with specific checkpoints, ALWAYS do two
 ```hunt-data
 {
   "title": "Hunt title here",
+  "description": "1-2 sentence teaser that sets the scene without spoiling the checkpoints. Written in the hunt's theme voice.",
   "center": { "latitude": 39.7392, "longitude": -104.9903 },
   "checkpoints": [
     {
