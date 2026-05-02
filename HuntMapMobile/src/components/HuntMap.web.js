@@ -73,6 +73,14 @@ export default function HuntMap({
   // Current location button state
   const [locating, setLocating] = useState(false);
 
+  // Hint tooltip — auto-dismisses after 5 s
+  const [showHint, setShowHint] = useState(true);
+  useEffect(() => {
+    if (!showPinDrop) return;
+    const t = setTimeout(() => setShowHint(false), 5000);
+    return () => clearTimeout(t);
+  }, [showPinDrop]);
+
   // Fly to GPS location when it changes
   const prevLocation = useRef(null);
   useEffect(() => {
@@ -341,8 +349,8 @@ export default function HuntMap({
         </button>
       )}
 
-      {/* Hint overlay when pin-drop mode is active and no pins yet */}
-      {showPinDrop && droppedPins.length === 0 && (
+      {/* Hint overlay — visible until first pin is dropped or 5 s elapses */}
+      {showPinDrop && droppedPins.length === 0 && showHint && (
         <div style={hintStyle} onClick={(e) => e.stopPropagation()}>
           <span>📍 Click the map to drop a checkpoint</span>
         </div>
