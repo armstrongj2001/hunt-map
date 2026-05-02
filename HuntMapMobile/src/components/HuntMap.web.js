@@ -210,7 +210,7 @@ export default function HuntMap({
 
   return (
     <div style={containerStyle}>
-      {/* Floating Places Autocomplete — hidden during street view */}
+      {/* Search bar + location button — one grouped control, hidden during street view */}
       {!streetViewVisible && (
         <div style={searchBarStyle}>
           <span style={{ fontSize: 15, flexShrink: 0 }}>🔍</span>
@@ -226,6 +226,15 @@ export default function HuntMap({
               onKeyDown={handleSearchKeyDown}
             />
           </Autocomplete>
+          <div style={dividerStyle} />
+          <button
+            onClick={flyToCurrentLocation}
+            disabled={locating}
+            title="Fly to my current location"
+            style={locateBtnInlineStyle(locating)}
+          >
+            {locating ? '…' : '◎'}
+          </button>
         </div>
       )}
 
@@ -338,18 +347,6 @@ export default function HuntMap({
         ))}
       </GoogleMap>
 
-      {/* Current location button — bottom-left, clear of Google's controls */}
-      {!streetViewVisible && (
-        <button
-          onClick={flyToCurrentLocation}
-          disabled={locating}
-          title="Fly to my current location"
-          style={locateBtnStyle(locating)}
-        >
-          {locating ? '…' : '◎'}
-        </button>
-      )}
-
       {/* Hint overlay — visible until first pin is dropped or 5 s elapses */}
       {showPinDrop && droppedPins.length === 0 && showHint && (
         <div style={hintStyle} onClick={(e) => e.stopPropagation()}>
@@ -400,25 +397,23 @@ const infoBubbleStyle = {
   padding: '4px 2px',
 };
 
-function locateBtnStyle(locating) {
+const dividerStyle = {
+  width: 1,
+  height: 20,
+  backgroundColor: '#E5E3DF',
+  flexShrink: 0,
+};
+
+function locateBtnInlineStyle(locating) {
   return {
-    position: 'absolute',
-    bottom: 120,
-    left: 16,
-    zIndex: 10,
-    width: 40,
-    height: 40,
-    borderRadius: '50%',
-    backgroundColor: 'rgba(255,255,255,0.97)',
+    background: 'none',
     border: 'none',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
     cursor: locating ? 'default' : 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
+    padding: '0 2px',
     fontSize: 20,
     color: locating ? '#9CA3AF' : '#1A3C34',
-    transition: 'transform 150ms ease, box-shadow 150ms ease',
+    flexShrink: 0,
+    lineHeight: 1,
     fontFamily: 'system-ui, sans-serif',
   };
 }
