@@ -48,8 +48,11 @@ export default function HuntChatPanel({ onHuntGenerated }) {
     if (!content) return;
     setInput('');
 
-    // Store raw messages for API (must include the hunt-data block so context is preserved)
-    const rawMessages = [...messages.map(m => ({ role: m.role, content: m.raw })), { role: 'user', content }];
+    // Store raw messages for API — filter out error bubbles (raw: '') so they don't corrupt the context
+    const rawMessages = [
+      ...messages.filter(m => m.raw).map(m => ({ role: m.role, content: m.raw })),
+      { role: 'user', content },
+    ];
     setMessages(prev => [...prev, { role: 'user', content, raw: content }]);
     setLoading(true);
 
@@ -66,10 +69,12 @@ export default function HuntChatPanel({ onHuntGenerated }) {
       if (huntData?.checkpoints?.length && onHuntGenerated) {
         onHuntGenerated(huntData);
       }
-    } catch {
+    } catch (err) {
+      const detail = err?.response?.data?.error || err?.message || 'Unknown error';
+      console.error('[HuntBot] chat error:', detail, err);
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: "Sorry, I couldn't reach the AI right now. Check your connection and try again.",
+        content: `Sorry, I couldn't reach the AI right now. (${detail})`,
         raw: '',
       }]);
     } finally {
