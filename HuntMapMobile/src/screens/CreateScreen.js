@@ -48,9 +48,10 @@ export default function CreateScreen() {
 
   const selectedTheme = THEMES.find(t => t.key === theme) || THEMES[0];
 
-  // Called when HuntBot returns a hunt with checkpoint coordinates
+  // Called when HuntBot returns a hunt — populates the Hunt Details form and switches to it
   function handleHuntGenerated(huntData) {
     if (huntData.title) setTitle(huntData.title);
+    if (huntData.description) setDescription(huntData.description);
     if (huntData.center) setMapCenter(huntData.center);
     if (huntData.checkpoints?.length) {
       setDroppedPins(huntData.checkpoints.map(cp => ({
@@ -61,6 +62,8 @@ export default function CreateScreen() {
         hint: cp.hint,
       })));
     }
+    // Switch to Hunt Details so the user sees everything populated
+    setRightTab('form');
   }
 
   // Called when user clicks the map (new pin) or drags an existing one
