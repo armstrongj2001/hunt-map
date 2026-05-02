@@ -232,18 +232,20 @@ export default function HuntMap({
           />
         )}
 
-        {/* Search result pin */}
+        {/* Search result — dropped pin shape, click to dismiss */}
         {searchPin && (
           <Marker
             position={{ lat: searchPin.lat, lng: searchPin.lng }}
-            title="Search result"
+            title="Dropped pin — click to dismiss"
             icon={{
-              path: window.google.maps.SymbolPath.CIRCLE,
-              scale: 10,
-              fillColor: '#E8734A',
-              fillOpacity: 1,
-              strokeColor: '#ffffff',
-              strokeWeight: 2,
+              url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(
+                `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="42" viewBox="0 0 32 42">
+                  <path d="M16 0C7.16 0 0 7.16 0 16c0 12 16 26 16 26S32 28 32 16C32 7.16 24.84 0 16 0z" fill="#E8734A"/>
+                  <circle cx="16" cy="16" r="7" fill="white" opacity="0.95"/>
+                </svg>`
+              )}`,
+              scaledSize: { width: 32, height: 42 },
+              anchor: { x: 16, y: 42 },
             }}
             onClick={() => setSearchPin(null)}
           />
