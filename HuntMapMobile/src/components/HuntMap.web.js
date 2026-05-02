@@ -133,37 +133,43 @@ export default function HuntMap({
     );
   }
 
+  // Flag to prevent geocode fallback running at the same time as onPlaceChanged
+  const placeSelectedRef = useRef(false);
+
   function handlePlaceSelected() {
     const place = autocompleteRef.current?.getPlace();
     if (!place?.geometry?.location) return;
+    placeSelectedRef.current = true;
     const lat = place.geometry.location.lat();
     const lng = place.geometry.location.lng();
-    const name = place.name || place.formatted_address || 'Search result';
     mapRef.current?.panTo({ lat, lng });
     mapRef.current?.setZoom(15);
-    setSearchPin({ lat, lng, name });
+    setSearchPin({ lat, lng });
+    // Reset flag after this tick
+    setTimeout(() => { placeSelectedRef.current = false; }, 0);
   }
 
-  // Geocode fallback: user typed an address and pressed Enter without picking
-  // a dropdown suggestion — send it through the Geocoding API directly
+  // Geocode fallback when user presses Enter without picking from dropdown
   async function handleSearchKeyDown(e) {
-    if (e.key !== 'Enter' || e.shiftKey) return;
+    if (e.key !== 'Enter') return;
+    // Wait a tick so onPlaceChanged fires first if it's going to
+    await new Promise(r => setTimeout(r, 50));
+    if (placeSelectedRef.current) return;
     const query = e.target.value?.trim();
-    if (!query || searchPin) return; // already handled by onPlaceChanged
+    if (!query) return;
     try {
       const res = await fetch(
         `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(query)}&key=${API_KEY}`
       );
       const data = await res.json();
       const result = data.results?.[0];
-      if (!result) return;
+      if (!result?.geometry?.location) return;
       const { lat, lng } = result.geometry.location;
-      const name = result.formatted_address;
       mapRef.current?.panTo({ lat, lng });
       mapRef.current?.setZoom(15);
-      setSearchPin({ lat, lng, name });
+      setSearchPin({ lat, lng });
     } catch {
-      // silent fail — user sees no change
+      // silent fail
     }
   }
 
@@ -195,7 +201,6 @@ export default function HuntMap({
               placeholder="Search a location…"
               style={searchInputStyle}
               onKeyDown={handleSearchKeyDown}
-              onChange={() => setSearchPin(null)}
             />
           </Autocomplete>
         </div>
@@ -227,11 +232,11 @@ export default function HuntMap({
           />
         )}
 
-        {/* Search result pin — shown when user searches a location */}
+        {/* Search result pin */}
         {searchPin && (
           <Marker
             position={{ lat: searchPin.lat, lng: searchPin.lng }}
-            title={searchPin.name}
+            title="Search result"
             icon={{
               path: window.google.maps.SymbolPath.CIRCLE,
               scale: 10,
@@ -240,13 +245,8 @@ export default function HuntMap({
               strokeColor: '#ffffff',
               strokeWeight: 2,
             }}
-          >
-            <InfoWindow onCloseClick={() => setSearchPin(null)}>
-              <div style={{ fontFamily: 'Inter, sans-serif', fontSize: 13, fontWeight: 600, maxWidth: 200 }}>
-                {searchPin.name}
-              </div>
-            </InfoWindow>
-          </Marker>
+            onClick={() => setSearchPin(null)}
+          />
         )}
 
         {/* Read-only markers passed in from parent */}
