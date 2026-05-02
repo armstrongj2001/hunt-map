@@ -28,6 +28,11 @@ function stripHuntData(text) {
   return text.replace(/```hunt-data\n[\s\S]*?\n```/g, '').trim();
 }
 
+// Find the most recent assistant message with checkpoint data in a message list
+function lastHuntData(messages) {
+  return [...(messages || [])].reverse().find(m => m.huntData?.checkpoints?.length)?.huntData ?? null;
+}
+
 function newConversation() {
   return { id: Date.now().toString(), title: 'New chat', createdAt: new Date().toISOString(), messages: [], savedIds: {} };
 }
@@ -66,6 +71,9 @@ export default function HuntChatPanel({ onHuntGenerated }) {
             setActiveId(latest.id);
             setMessages(latest.messages || []);
             setSavedIds(latest.savedIds || {});
+            // Restore last generated hunt to map/form without switching tabs
+            const huntData = lastHuntData(latest.messages);
+            if (huntData && onHuntGenerated) onHuntGenerated(huntData, { restore: true });
             return;
           }
         } catch {}
@@ -115,6 +123,9 @@ export default function HuntChatPanel({ onHuntGenerated }) {
     setSavedIds(conv.savedIds || {});
     setInput('');
     setShowSidebar(false);
+    // Restore that conversation's last hunt to the map without switching tabs
+    const huntData = lastHuntData(conv.messages);
+    if (huntData && onHuntGenerated) onHuntGenerated(huntData, { restore: true });
   }
 
   function deleteConversation(id) {

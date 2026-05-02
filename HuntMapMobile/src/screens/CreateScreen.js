@@ -48,8 +48,10 @@ export default function CreateScreen() {
 
   const selectedTheme = THEMES.find(t => t.key === theme) || THEMES[0];
 
-  // Called when HuntBot returns a hunt — populates the Hunt Details form and switches to it
-  function handleHuntGenerated(huntData) {
+  // Called when HuntBot generates or restores a hunt.
+  // On fresh generation: switches tab so user sees the populated form.
+  // On restore (page load / conversation switch): syncs state silently.
+  function handleHuntGenerated(huntData, { restore = false } = {}) {
     if (huntData.title) setTitle(huntData.title);
     if (huntData.description) setDescription(huntData.description);
     if (huntData.center) setMapCenter(huntData.center);
@@ -62,8 +64,7 @@ export default function CreateScreen() {
         hint: cp.hint,
       })));
     }
-    // Switch to Hunt Details so the user sees everything populated
-    setRightTab('form');
+    if (!restore) setRightTab('form');
   }
 
   // Called when user clicks the map (new pin) or drags an existing one
