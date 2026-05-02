@@ -74,26 +74,23 @@ const itemStyles = StyleSheet.create({
   joinCode: { fontSize: fontSize.caption, fontFamily: 'Inter_700Bold', letterSpacing: 1 },
 });
 
-const EMPTY_STATES = {
-  Created: { icon: '🗺️', title: "No hunts created yet", desc: 'Use the Create tab to design a hunt with HuntBot.' },
-  Joined:  { icon: '🧭', title: 'No active hunts', desc: 'Browse Discover to find a hunt near you.' },
-  Completed: { icon: '🏆', title: 'No completed hunts yet', desc: 'Your finished adventures will appear here.' },
-};
-
 export default function PlayScreen({ onNavigate }) {
   const { colors } = useTheme();
   const [activeTab, setActiveTab] = useState('Created');
   const [myHunts, setMyHunts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const s = makeStyles(colors);
 
   const loadHunts = useCallback(async () => {
+    setLoadFailed(false);
     try {
       const data = await fetchMyHunts();
-      setMyHunts(data);
+      // Guard against non-array responses (e.g. unexpected API shape)
+      setMyHunts(Array.isArray(data) ? data : []);
     } catch {
-      // silently fail — user might be offline
+      setLoadFailed(true);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -107,29 +104,30 @@ export default function PlayScreen({ onNavigate }) {
     loadHunts();
   }
 
-  const empty = EMPTY_STATES[activeTab];
-
-  function renderContent() {
-    if (activeTab !== 'Created') {
-      return (
-        <View style={s.emptyState}>
-          <Text style={s.emptyIcon}>{empty.icon}</Text>
-          <Text style={[s.emptyTitle, { color: colors.textPrimary }]}>{empty.title}</Text>
-          <Text style={[s.emptyDesc, { color: colors.textSecondary }]}>{empty.desc}</Text>
-        </View>
-      );
-    }
-
+  function renderCreatedTab() {
     if (loading) {
       return <ActivityIndicator size="large" color={palette.campfire} style={{ marginTop: spacing.xxl }} />;
+    }
+
+    if (loadFailed) {
+      return (
+        <View style={s.emptyState}>
+          <Text style={s.emptyIcon}>⚠️</Text>
+          <Text style={[s.emptyTitle, { color: colors.textPrimary }]}>Couldn't load your hunts</Text>
+          <Text style={[s.emptyDesc, { color: colors.textSecondary }]}>Check your connection and pull down to retry.</Text>
+        </View>
+      );
     }
 
     if (myHunts.length === 0) {
       return (
         <View style={s.emptyState}>
-          <Text style={s.emptyIcon}>{empty.icon}</Text>
-          <Text style={[s.emptyTitle, { color: colors.textPrimary }]}>{empty.title}</Text>
-          <Text style={[s.emptyDesc, { color: colors.textSecondary }]}>{empty.desc}</Text>
+          <Text style={s.emptyIcon}>🗺️</Text>
+          <Text style={[s.emptyTitle, { color: colors.textPrimary }]}>You haven't created any hunts yet</Text>
+          <Text style={[s.emptyDesc, { color: colors.textSecondary }]}>Ready to build one? Design a hunt with HuntBot in minutes.</Text>
+          <TouchableOpacity style={s.ctaButton} onPress={() => onNavigate?.('Create')}>
+            <Text style={s.ctaButtonText}>Create Your First Hunt</Text>
+          </TouchableOpacity>
         </View>
       );
     }
@@ -142,6 +140,29 @@ export default function PlayScreen({ onNavigate }) {
         onPress={() => onNavigate?.('HuntDetail', { huntId: hunt.id })}
       />
     ));
+  }
+
+  function renderJoinedTab() {
+    return (
+      <View style={s.emptyState}>
+        <Text style={s.emptyIcon}>🧭</Text>
+        <Text style={[s.emptyTitle, { color: colors.textPrimary }]}>No active hunts</Text>
+        <Text style={[s.emptyDesc, { color: colors.textSecondary }]}>Join a hunt using a code from a hunt creator.</Text>
+        <TouchableOpacity style={s.ctaButton} onPress={() => onNavigate?.('Discover')}>
+          <Text style={s.ctaButtonText}>Browse Discover</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  function renderCompletedTab() {
+    return (
+      <View style={s.emptyState}>
+        <Text style={s.emptyIcon}>🏆</Text>
+        <Text style={[s.emptyTitle, { color: colors.textPrimary }]}>No completed hunts yet</Text>
+        <Text style={[s.emptyDesc, { color: colors.textSecondary }]}>Finish your first hunt and it'll appear here.</Text>
+      </View>
+    );
   }
 
   return (
@@ -167,7 +188,9 @@ export default function PlayScreen({ onNavigate }) {
         contentContainerStyle={s.content}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={palette.campfire} />}
       >
-        {renderContent()}
+        {activeTab === 'Created'   && renderCreatedTab()}
+        {activeTab === 'Joined'    && renderJoinedTab()}
+        {activeTab === 'Completed' && renderCompletedTab()}
       </ScrollView>
     </View>
   );
@@ -188,6 +211,8 @@ function makeStyles(colors) {
     emptyState: { flex: 1, alignItems: 'center', paddingVertical: spacing.xxl, paddingHorizontal: spacing.xl },
     emptyIcon: { fontSize: 56, marginBottom: spacing.md },
     emptyTitle: { fontSize: fontSize.card, fontFamily: 'Inter_700Bold', textAlign: 'center', marginBottom: spacing.sm },
-    emptyDesc: { fontSize: fontSize.caption, fontFamily: 'Inter_400Regular', textAlign: 'center', lineHeight: 20 },
+    emptyDesc: { fontSize: fontSize.caption, fontFamily: 'Inter_400Regular', textAlign: 'center', lineHeight: 20, marginBottom: spacing.lg },
+    ctaButton: { backgroundColor: palette.campfire, borderRadius: borderRadius.md, paddingVertical: spacing.base, paddingHorizontal: spacing.xl },
+    ctaButtonText: { color: '#fff', fontSize: fontSize.body, fontFamily: 'Inter_600SemiBold' },
   });
 }
