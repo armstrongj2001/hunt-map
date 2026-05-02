@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TextInput,
   TouchableOpacity, ActivityIndicator, Platform,
@@ -10,13 +10,14 @@ import { palette } from '../theme/colors';
 import HuntMap from '../components/HuntMap';
 import HuntCard from '../components/HuntCard';
 
+// Mock hunts with real Denver coordinates (first checkpoint location used as the pin)
 const MOCK_HUNTS = [
-  { id: 1, title: 'Denver History Mystery',      creator: 'jobi',      distance: '2.3 mi', rating: 4.5, difficulty: 'Medium', mode: 'Competitive', icon: '🏛️', colorKey: 'mystery'  },
-  { id: 2, title: 'Cherry Creek Trail Quest',    creator: 'trailboss', distance: '0.8 mi', rating: 4.8, difficulty: 'Easy',   mode: 'Free Play',   icon: '🌿', colorKey: 'trail'    },
-  { id: 3, title: 'Capitol Hill Haunting',        creator: 'ghosthunt', distance: '1.5 mi', rating: 4.2, difficulty: 'Hard',   mode: 'Competitive', icon: '👻', colorKey: 'haunting' },
-  { id: 4, title: 'Wash Park Family Adventure',  creator: 'familyfun', distance: '3.1 mi', rating: 4.7, difficulty: 'Easy',   mode: 'Free Play',   icon: '🌳', colorKey: 'family'   },
-  { id: 5, title: 'LoDo Pub Crawl Puzzle',        creator: 'barfly',    distance: '2.0 mi', rating: 4.0, difficulty: 'Medium', mode: 'Competitive', icon: '🍺', colorKey: 'pub'      },
-  { id: 6, title: "Sloan's Lake Pirate Treasure", creator: 'capnjack',  distance: '4.2 mi', rating: 4.6, difficulty: 'Medium', mode: 'Free Play',   icon: '🏴‍☠️', colorKey: 'pirate'   },
+  { id: 1, title: 'Denver History Mystery',      creator: 'jobi',      distance: '2.3 mi', rating: 4.5, difficulty: 'Medium', mode: 'Competitive', icon: '🏛️', colorKey: 'mystery',  latitude: 39.7478, longitude: -104.9440 },
+  { id: 2, title: 'Cherry Creek Trail Quest',    creator: 'trailboss', distance: '0.8 mi', rating: 4.8, difficulty: 'Easy',   mode: 'Free Play',   icon: '🌿', colorKey: 'trail',    latitude: 39.7512, longitude: -105.0027 },
+  { id: 3, title: 'Capitol Hill Haunting',        creator: 'ghosthunt', distance: '1.5 mi', rating: 4.2, difficulty: 'Hard',   mode: 'Competitive', icon: '👻', colorKey: 'haunting', latitude: 39.7392, longitude: -104.9847 },
+  { id: 4, title: 'Wash Park Family Adventure',  creator: 'familyfun', distance: '3.1 mi', rating: 4.7, difficulty: 'Easy',   mode: 'Free Play',   icon: '🌳', colorKey: 'family',   latitude: 39.7003, longitude: -104.9617 },
+  { id: 5, title: 'LoDo Pub Crawl Puzzle',        creator: 'barfly',    distance: '2.0 mi', rating: 4.0, difficulty: 'Medium', mode: 'Competitive', icon: '🍺', colorKey: 'pub',      latitude: 39.7499, longitude: -104.9996 },
+  { id: 6, title: "Sloan's Lake Pirate Treasure", creator: 'capnjack',  distance: '4.2 mi', rating: 4.6, difficulty: 'Medium', mode: 'Free Play',   icon: '🏴‍☠️', colorKey: 'pirate',   latitude: 39.7430, longitude: -105.0480 },
 ];
 
 const FILTERS = ['All', 'Nearby', 'Popular', 'New', 'Competitive', 'Free Play'];
@@ -27,6 +28,8 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [activeFilter, setActiveFilter] = useState('All');
+  const [activeHuntId, setActiveHuntId] = useState(null);
+  const [focusLocation, setFocusLocation] = useState(null);
   const s = makeStyles(colors);
 
   useEffect(() => { requestLocation(); }, []);
@@ -50,14 +53,39 @@ export default function HomeScreen() {
     return matchesSearch && matchesFilter;
   });
 
+  const markers = filteredHunts
+    .filter(h => h.latitude && h.longitude)
+    .map(h => ({ id: h.id, latitude: h.latitude, longitude: h.longitude, title: h.title }));
+
+  function handleCardPress(hunt) {
+    setActiveHuntId(hunt.id);
+    setFocusLocation({ latitude: hunt.latitude, longitude: hunt.longitude });
+  }
+
+  function handleMarkerPress(marker) {
+    setActiveHuntId(marker.id);
+    // Scroll the feed card into view (web only — uses DOM scrollIntoView)
+    if (Platform.OS === 'web') {
+      setTimeout(() => {
+        document.getElementById(`hunt-card-${marker.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }, 50);
+    }
+  }
+
   if (Platform.OS === 'web') {
     return (
       <WebDiscover
         colors={colors} s={s}
-        mapLocation={location} loading={loading}
+        mapLocation={location}
+        focusLocation={focusLocation}
+        markers={markers}
+        onMarkerPress={handleMarkerPress}
+        loading={loading}
         search={search} setSearch={setSearch}
         activeFilter={activeFilter} setActiveFilter={setActiveFilter}
         filteredHunts={filteredHunts}
+        activeHuntId={activeHuntId}
+        onCardPress={handleCardPress}
       />
     );
   }
@@ -65,28 +93,36 @@ export default function HomeScreen() {
   return (
     <MobileDiscover
       colors={colors} s={s}
-      location={location} loading={loading}
+      location={location}
+      focusLocation={focusLocation}
+      markers={markers}
+      onMarkerPress={handleMarkerPress}
+      loading={loading}
       search={search} setSearch={setSearch}
       filteredHunts={filteredHunts}
+      activeHuntId={activeHuntId}
+      onCardPress={handleCardPress}
     />
   );
 }
 
 // ── Web layout: map left 60%, feed right 40% ─────────────────────────────────
 
-function WebDiscover({ colors, s, mapLocation, loading, search, setSearch, activeFilter, setActiveFilter, filteredHunts }) {
+function WebDiscover({ colors, s, mapLocation, focusLocation, markers, onMarkerPress, loading, search, setSearch, activeFilter, setActiveFilter, filteredHunts, activeHuntId, onCardPress }) {
   return (
     <View style={s.webShell}>
-
-      {/* Map panel — Places Autocomplete is built into HuntMap */}
       <View style={s.webMap}>
         {loading
-          ? <View style={s.centered}><ActivityIndicator size="large" color={colors.cta} /></View>
-          : <HuntMap location={mapLocation} />
+          ? <View style={s.centered}><ActivityIndicator size="large" color={palette.campfire} /></View>
+          : <HuntMap
+              location={mapLocation}
+              focusLocation={focusLocation}
+              markers={markers}
+              onMarkerPress={onMarkerPress}
+            />
         }
       </View>
 
-      {/* Hunt feed panel */}
       <View style={s.webFeed}>
         <View style={s.searchBar}>
           <Search size={16} strokeWidth={1.5} color={palette.slate} />
@@ -114,7 +150,14 @@ function WebDiscover({ colors, s, mapLocation, loading, search, setSearch, activ
         <ScrollView style={s.feedScroll} contentContainerStyle={s.feedContent} showsVerticalScrollIndicator={false}>
           <Text style={s.feedHeading}>{filteredHunts.length} hunts nearby</Text>
           {filteredHunts.map(hunt => (
-            <HuntCard key={hunt.id} hunt={hunt} onPress={() => {}} />
+            // nativeID is used by scrollIntoView on web when a pin is clicked
+            <View key={hunt.id} nativeID={`hunt-card-${hunt.id}`}>
+              <HuntCard
+                hunt={hunt}
+                active={activeHuntId === hunt.id}
+                onPress={() => onCardPress(hunt)}
+              />
+            </View>
           ))}
         </ScrollView>
       </View>
@@ -124,15 +167,20 @@ function WebDiscover({ colors, s, mapLocation, loading, search, setSearch, activ
 
 // ── Mobile layout: full-screen map + bottom card peek ────────────────────────
 
-function MobileDiscover({ colors, s, location, loading, search, setSearch, filteredHunts }) {
+function MobileDiscover({ colors, s, location, focusLocation, markers, onMarkerPress, loading, search, setSearch, filteredHunts, activeHuntId, onCardPress }) {
   if (loading) {
-    return <View style={s.centered}><ActivityIndicator size="large" color={colors.cta} /></View>;
+    return <View style={s.centered}><ActivityIndicator size="large" color={palette.campfire} /></View>;
   }
 
   return (
     <View style={s.mobileShell}>
       <View style={StyleSheet.absoluteFill}>
-        <HuntMap location={location} />
+        <HuntMap
+          location={location}
+          focusLocation={focusLocation}
+          markers={markers}
+          onMarkerPress={onMarkerPress}
+        />
       </View>
 
       <View style={s.mobileSearch}>
@@ -152,7 +200,7 @@ function MobileDiscover({ colors, s, location, loading, search, setSearch, filte
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingRight: spacing.lg }}>
           {filteredHunts.map(hunt => (
             <View key={hunt.id} style={{ width: 260, marginRight: spacing.md }}>
-              <HuntCard hunt={hunt} onPress={() => {}} />
+              <HuntCard hunt={hunt} active={activeHuntId === hunt.id} onPress={() => onCardPress(hunt)} />
             </View>
           ))}
         </ScrollView>
@@ -171,7 +219,7 @@ function makeStyles(colors) {
     filterScroll: { maxHeight: 44 },
     filterRow: { paddingHorizontal: spacing.base, gap: spacing.sm, alignItems: 'center' },
     filterPill: { paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: borderRadius.pill, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface },
-    filterPillActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+    filterPillActive: { backgroundColor: palette.forest, borderColor: palette.forest },
     filterText: { fontSize: fontSize.caption, fontFamily: 'Inter_500Medium', color: colors.textSecondary },
     filterTextActive: { color: '#fff', fontFamily: 'Inter_600SemiBold' },
     feedScroll: { flex: 1 },

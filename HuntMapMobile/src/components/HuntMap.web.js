@@ -40,8 +40,10 @@ async function reverseGeocode(lat, lng) {
 }
 
 export default function HuntMap({
-  location,           // { latitude, longitude } — GPS position
-  markers = [],       // [{ latitude, longitude, title }] — read-only pins
+  location,           // { latitude, longitude } — GPS position (blue dot)
+  focusLocation,      // { latitude, longitude } — fly here without showing a marker
+  markers = [],       // [{ latitude, longitude, title, id }] — read-only pins
+  onMarkerPress,      // (marker) => void — called when a read-only pin is clicked
   onMapPress,         // (lat, lng) => void — called when user clicks map (Create page)
   droppedPins = [],   // [{ latitude, longitude, address }] — draggable checkpoint pins
   onPinDrop,          // ({ latitude, longitude, address }) => void — new pin dropped/dragged
@@ -71,7 +73,7 @@ export default function HuntMap({
   // Current location button state
   const [locating, setLocating] = useState(false);
 
-  // Fly to location when it changes (GPS or search result)
+  // Fly to GPS location when it changes
   const prevLocation = useRef(null);
   useEffect(() => {
     if (!mapRef.current || !location) return;
@@ -82,6 +84,18 @@ export default function HuntMap({
     mapRef.current.panTo({ lat, lng });
     mapRef.current.setZoom(14);
   }, [location]);
+
+  // Fly to an arbitrary location (e.g. selected hunt card) without showing a marker
+  const prevFocus = useRef(null);
+  useEffect(() => {
+    if (!mapRef.current || !focusLocation) return;
+    const { latitude: lat, longitude: lng } = focusLocation;
+    const prev = prevFocus.current;
+    if (prev && prev.latitude === lat && prev.longitude === lng) return;
+    prevFocus.current = focusLocation;
+    mapRef.current.panTo({ lat, lng });
+    mapRef.current.setZoom(14);
+  }, [focusLocation]);
 
   const onLoad = useCallback((map) => {
     mapRef.current = map;
@@ -251,12 +265,23 @@ export default function HuntMap({
           />
         )}
 
-        {/* Read-only markers passed in from parent */}
+        {/* Read-only hunt markers — forest green pins, clickable */}
         {markers.map((m, i) => (
           <Marker
-            key={i}
+            key={m.id ?? i}
             position={{ lat: m.latitude, lng: m.longitude }}
-            title={m.title || `Checkpoint ${i + 1}`}
+            title={m.title}
+            onClick={() => onMarkerPress?.(m)}
+            icon={{
+              url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(
+                `<svg xmlns="http://www.w3.org/2000/svg" width="30" height="40" viewBox="0 0 30 40">
+                  <path d="M15 0C6.72 0 0 6.72 0 15c0 11.25 15 25 15 25S30 26.25 30 15C30 6.72 23.28 0 15 0z" fill="#1A3C34"/>
+                  <circle cx="15" cy="15" r="6" fill="white" opacity="0.9"/>
+                </svg>`
+              )}`,
+              scaledSize: { width: 30, height: 40 },
+              anchor: { x: 15, y: 40 },
+            }}
           />
         ))}
 

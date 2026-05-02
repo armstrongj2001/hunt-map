@@ -58,14 +58,14 @@ const badgeBase = StyleSheet.create({
   text: { fontSize: 11, fontFamily: 'Inter_500Medium' },
 });
 
-export default function HuntCard({ hunt, onPress }) {
+export default function HuntCard({ hunt, onPress, active = false }) {
   const { colors } = useTheme();
   const s = makeStyles(colors);
   const thumbColor = THEME_COLORS[hunt.colorKey] || palette.forest;
 
   return (
     <TouchableOpacity
-      style={s.card}
+      style={[s.card, active && s.cardActive]}
       onPress={onPress}
       activeOpacity={0.85}
     >
@@ -105,6 +105,10 @@ function makeStyles(colors) {
       overflow: 'hidden',
       marginBottom: spacing.md,
       ...(Platform.OS === 'web' ? { cursor: 'pointer' } : {}),
+    },
+    cardActive: {
+      borderColor: palette.campfire,
+      borderWidth: 2,
     },
     thumb: {
       height: 120,
