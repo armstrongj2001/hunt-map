@@ -11,15 +11,16 @@ import HuntChatPanel from '../components/HuntChatPanel';
 import LandmarkPanel from '../components/LandmarkPanel';
 
 const THEMES = [
-  { key: 'custom',     label: 'Custom',     icon: '✏️' },
-  { key: 'easter',     label: 'Easter',     icon: '🐣' },
-  { key: 'halloween',  label: 'Halloween',  icon: '🎃' },
-  { key: 'christmas',  label: 'Christmas',  icon: '🎄' },
-  { key: 'birthday',   label: 'Birthday',   icon: '🎂' },
-  { key: 'pirate',     label: 'Pirate',     icon: '🏴‍☠️' },
-  { key: 'detective',  label: 'Detective',  icon: '🔍' },
-  { key: 'fantasy',    label: 'Fantasy',    icon: '🧙' },
-  { key: 'scifi',      label: 'Sci-Fi',     icon: '🚀' },
+  { key: 'custom',     label: 'Custom',     icon: '✏️', color: '#1A3C34' },
+  { key: 'easter',     label: 'Easter',     icon: '🐣', color: '#4A7C59' },
+  { key: 'halloween',  label: 'Halloween',  icon: '🎃', color: '#FF6B00' },
+  { key: 'christmas',  label: 'Christmas',  icon: '🎄', color: '#C41E3A' },
+  { key: 'birthday',   label: 'Birthday',   icon: '🎂', color: '#E8734A' },
+  { key: 'pirate',     label: 'Pirate',     icon: '🏴‍☠️', color: '#DAA520' },
+  { key: 'detective',  label: 'Detective',  icon: '🔍', color: '#5F5E5A' },
+  { key: 'fantasy',    label: 'Fantasy',    icon: '🧙', color: '#7B68EE' },
+  { key: 'scifi',      label: 'Sci-Fi',     icon: '🚀', color: '#3B82F6' },
+  { key: 'historical', label: 'Historical', icon: '🏛️', color: '#8B5E34' },
 ];
 
 export default function CreateScreen() {
@@ -126,6 +127,7 @@ export default function CreateScreen() {
       {/* Theme picker */}
       <Text style={s.label}>Theme</Text>
       <TouchableOpacity style={s.themePicker} onPress={() => setShowThemePicker(!showThemePicker)}>
+        <View style={[s.themeDot, { backgroundColor: selectedTheme.color }]} />
         <Text style={s.themeIcon}>{selectedTheme.icon}</Text>
         <Text style={s.themeLabel}>{selectedTheme.label}</Text>
         <Text style={s.themeChevron}>{showThemePicker ? '▲' : '▼'}</Text>
@@ -138,6 +140,7 @@ export default function CreateScreen() {
               style={[s.themeOption, theme === t.key && s.themeOptionActive]}
               onPress={() => { setTheme(t.key); setShowThemePicker(false); }}
             >
+              <View style={[s.themeDot, { backgroundColor: t.color }]} />
               <Text style={s.themeIcon}>{t.icon}</Text>
               <Text style={[s.themeLabel, theme === t.key && s.themeOptionActiveText]}>{t.label}</Text>
             </TouchableOpacity>
@@ -300,11 +303,12 @@ function makeStyles(colors) {
     textarea: { height: 80, textAlignVertical: 'top' },
 
     themePicker: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderRadius: borderRadius.md, borderWidth: 1, borderColor: colors.border, padding: spacing.base, marginBottom: spacing.xs, gap: spacing.sm },
+    themeDot: { width: 12, height: 12, borderRadius: 6, flexShrink: 0 },
     themeIcon: { fontSize: 18 },
     themeLabel: { flex: 1, fontSize: fontSize.body, fontFamily: 'Inter_400Regular', color: colors.textPrimary },
     themeChevron: { fontSize: 12, color: colors.textSecondary },
-    themeDropdown: { backgroundColor: colors.surface, borderRadius: borderRadius.md, borderWidth: 1, borderColor: colors.border, marginBottom: spacing.md, overflow: 'hidden' },
-    themeOption: { flexDirection: 'row', alignItems: 'center', padding: spacing.base, gap: spacing.sm },
+    themeDropdown: { backgroundColor: colors.surface, borderRadius: borderRadius.md, borderWidth: 1, borderColor: colors.border, marginBottom: spacing.md },
+    themeOption: { flexDirection: 'row', alignItems: 'center', padding: spacing.base, gap: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border },
     themeOptionActive: { backgroundColor: colors.surfaceAlt },
     themeOptionActiveText: { fontFamily: 'Inter_600SemiBold', color: colors.primary },
 
