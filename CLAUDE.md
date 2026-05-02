@@ -258,6 +258,32 @@ App Store + web deployment, beta testing, performance optimization.
 ## Environment
 - WSL2 Ubuntu on Windows (machine: jobilegion, user: jobi)
 - Python 3.10+
+
+## Latest Audit Note
+
+### Current Status
+- Phase 2
+- Repo path: `/home/jobi/claude/hunt-map`
+- Last audit date: 2026-05-02
+
+### Audit Findings
+- Unpublished hunt data is readable by any authenticated user via hunt detail and related checkpoint/team read endpoints. Draft and archived hunts are not properly scoped on read.
+- Discover still uses hardcoded mock hunts in the frontend instead of loading published hunts from the backend.
+- AI-saved hunts currently drop metadata on save. The chat save flow persists title and checkpoints, but loses description, theme, and game mode.
+- The manual Create flow is not wired to persistence yet. Visible Save Draft and Preview buttons do not perform any action.
+- Deleting a checkpoint can desync the selected pin index in the Create screen when an earlier pin is removed.
+
+### Testing Status
+- Backend test run: `./venv/bin/python manage.py test`
+- Result: `Ran 0 tests`
+- No backend tests currently cover auth, hunt permissions, AI, or frontend/backend contracts.
+
+### Recommended Next Steps
+- Fix backend read permissions for hunt detail, checkpoints, and team-related reads before exposing shared or published data more broadly.
+- Replace Discover mocks with real published-hunt API data.
+- Preserve AI-generated metadata when saving hunts from chat.
+- Wire the manual Create flow to save/update draft hunts.
+- Add minimal tests around hunt visibility and ownership rules first.
 - PostgreSQL with PostGIS extension
 - Node.js for Expo/React Native
 - Web dev server: `npx expo start --web` (runs on localhost:8081)
