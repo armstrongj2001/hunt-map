@@ -3,10 +3,13 @@ import {
   View, Text, TextInput, TouchableOpacity, ScrollView,
   ActivityIndicator, StyleSheet, KeyboardAvoidingView, Platform,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme, spacing, fontSize, borderRadius } from '../theme';
 import { palette } from '../theme/colors';
 import { sendChatMessage } from '../api/ai';
 import { createHuntWithCheckpoints } from '../api/hunts';
+
+const HISTORY_KEY = 'huntbot_chat_history';
 
 const STARTERS = [
   'Design me a Halloween hunt near Cheesman Park with 5 stops',
@@ -39,9 +42,31 @@ export default function HuntChatPanel({ onHuntGenerated }) {
   const scrollRef = useRef(null);
   const s = makeStyles(colors);
 
+  // Load persisted history on mount
+  useEffect(() => {
+    AsyncStorage.getItem(HISTORY_KEY).then((raw) => {
+      if (raw) {
+        try { setMessages(JSON.parse(raw)); } catch {}
+      }
+    });
+  }, []);
+
+  // Persist history whenever messages change
+  useEffect(() => {
+    if (messages.length > 0) {
+      AsyncStorage.setItem(HISTORY_KEY, JSON.stringify(messages));
+    }
+  }, [messages]);
+
   useEffect(() => {
     scrollRef.current?.scrollToEnd({ animated: true });
   }, [messages, loading]);
+
+  function clearHistory() {
+    setMessages([]);
+    setSavedIds({});
+    AsyncStorage.removeItem(HISTORY_KEY);
+  }
 
   async function send(text) {
     const content = (text || input).trim();
@@ -106,8 +131,15 @@ export default function HuntChatPanel({ onHuntGenerated }) {
     >
       {/* Header */}
       <View style={s.header}>
-        <Text style={s.headerTitle}>🤖 HuntBot</Text>
-        <Text style={s.headerSub}>AI hunt designer — describe your hunt and I'll build it</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={s.headerTitle}>🤖 HuntBot</Text>
+          <Text style={s.headerSub}>AI hunt designer — describe your hunt and I'll build it</Text>
+        </View>
+        {messages.length > 0 && (
+          <TouchableOpacity onPress={clearHistory} style={s.clearBtn}>
+            <Text style={s.clearBtnText}>Clear</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Message list */}
@@ -232,6 +264,8 @@ function makeStyles(colors) {
       backgroundColor: colors.background,
     },
     header: {
+      flexDirection: 'row',
+      alignItems: 'center',
       paddingHorizontal: spacing.lg,
       paddingVertical: spacing.md,
       borderBottomWidth: 1,
@@ -248,6 +282,19 @@ function makeStyles(colors) {
       fontFamily: 'Inter_400Regular',
       color: colors.textSecondary,
       marginTop: 2,
+    },
+    clearBtn: {
+      paddingHorizontal: spacing.base,
+      paddingVertical: spacing.xs,
+      borderRadius: borderRadius.md,
+      borderWidth: 1,
+      borderColor: colors.border,
+      alignSelf: 'center',
+    },
+    clearBtnText: {
+      fontSize: fontSize.caption,
+      fontFamily: 'Inter_400Regular',
+      color: colors.textSecondary,
     },
     feed: { flex: 1 },
     feedContent: {
