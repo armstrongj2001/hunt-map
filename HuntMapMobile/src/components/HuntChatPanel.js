@@ -4,6 +4,7 @@ import {
   ActivityIndicator, StyleSheet, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Markdown from 'react-native-markdown-display';
 import { useTheme, spacing, fontSize, borderRadius } from '../theme';
 import { palette } from '../theme/colors';
 import { sendChatMessage } from '../api/ai';
@@ -273,9 +274,11 @@ export default function HuntChatPanel({ onHuntGenerated }) {
           <View key={i}>
             <View style={[s.bubble, msg.role === 'user' ? s.bubbleUser : s.bubbleBot]}>
               {msg.role === 'assistant' && <Text style={s.bubbleLabel}>HuntBot</Text>}
-              <Text style={[s.bubbleText, msg.role === 'user' ? s.bubbleTextUser : s.bubbleTextBot]}>
-                {msg.content}
-              </Text>
+              {msg.role === 'user' ? (
+                <Text style={s.bubbleTextUser}>{msg.content}</Text>
+              ) : (
+                <Markdown style={markdownStyles(colors)}>{msg.content}</Markdown>
+              )}
             </View>
 
             {msg.role === 'assistant' && msg.huntData?.checkpoints?.length > 0 && (
@@ -374,6 +377,28 @@ export default function HuntChatPanel({ onHuntGenerated }) {
       {chatArea}
     </KeyboardAvoidingView>
   );
+}
+
+// Markdown styles scoped to match the bot bubble and design system
+function markdownStyles(colors) {
+  return {
+    body: { color: colors.textPrimary, fontFamily: 'Inter_400Regular', fontSize: 13, lineHeight: 20 },
+    heading1: { fontFamily: 'Inter_700Bold', fontSize: 16, color: colors.textPrimary, marginTop: 8, marginBottom: 4 },
+    heading2: { fontFamily: 'Inter_700Bold', fontSize: 14, color: colors.textPrimary, marginTop: 6, marginBottom: 4 },
+    heading3: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: palette.campfire, marginTop: 6, marginBottom: 2 },
+    strong: { fontFamily: 'Inter_700Bold' },
+    em: { fontStyle: 'italic' },
+    bullet_list: { marginVertical: 4 },
+    ordered_list: { marginVertical: 4 },
+    list_item: { marginBottom: 2 },
+    bullet_list_icon: { color: palette.campfire, marginTop: 4 },
+    code_inline: { fontFamily: 'Inter_400Regular', backgroundColor: colors.surfaceAlt || '#f0ede8', borderRadius: 4, paddingHorizontal: 4, fontSize: 12, color: palette.forest },
+    code_block: { fontFamily: 'Inter_400Regular', backgroundColor: colors.surfaceAlt || '#f0ede8', borderRadius: 8, padding: 10, fontSize: 12, color: palette.forest },
+    blockquote: { borderLeftWidth: 3, borderLeftColor: palette.campfire, paddingLeft: 10, opacity: 0.85 },
+    hr: { backgroundColor: colors.border, marginVertical: 8 },
+    paragraph: { marginBottom: 6, marginTop: 0 },
+    link: { color: palette.campfire },
+  };
 }
 
 function makeStyles(colors) {
