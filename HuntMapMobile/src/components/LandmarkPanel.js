@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
-  View, Text, TouchableOpacity, ScrollView,
+  View, Text, TouchableOpacity, ScrollView, Image,
   ActivityIndicator, StyleSheet, TextInput, Platform,
 } from 'react-native';
 import { useTheme, spacing, fontSize, borderRadius } from '../theme';
@@ -21,7 +21,10 @@ export default function LandmarkPanel({ pin, pinIndex, huntTheme, onSave, onDism
   const [selected, setSelected] = useState(null);
   const [clue, setClue] = useState(pin?.clue || '');
   const [hint, setHint] = useState(pin?.hint || '');
+  const [difficulty, setDifficulty] = useState(pin?.difficulty || 'Medium');
+  const [photo, setPhoto] = useState(pin?.photo || null); // URI string
   const [generating, setGenerating] = useState(false);
+  const fileInputRef = useRef(null);
   const s = makeStyles(colors);
 
   useEffect(() => {
@@ -30,6 +33,8 @@ export default function LandmarkPanel({ pin, pinIndex, huntTheme, onSave, onDism
     setSelected(null);
     setClue(pin.clue || '');
     setHint(pin.hint || '');
+    setDifficulty(pin.difficulty || 'Medium');
+    setPhoto(pin.photo || null);
     queryNearbyLandmarks(pin.latitude, pin.longitude).then(results => {
       setLandmarks(results);
       setLoading(false);
@@ -60,13 +65,14 @@ Write ONE clue (2-3 sentences, in the theme's voice) that leads players to this 
     }
   }
 
+  function handlePhotoSelect(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setPhoto(URL.createObjectURL(file));
+  }
+
   function handleSave() {
-    onSave(pinIndex, {
-      ...pin,
-      clue,
-      hint,
-      landmark: selected,
-    });
+    onSave(pinIndex, { ...pin, clue, hint, difficulty, photo, landmark: selected });
   }
 
   if (!pin) return null;
@@ -169,6 +175,53 @@ Write ONE clue (2-3 sentences, in the theme's voice) that leads players to this 
           </TouchableOpacity>
         )}
 
+        {/* Difficulty */}
+        <Text style={s.sectionLabel}>Difficulty</Text>
+        <View style={s.difficultyRow}>
+          {['Easy', 'Medium', 'Hard'].map(d => (
+            <TouchableOpacity
+              key={d}
+              style={[s.diffBtn, difficulty === d && s.diffBtnActive(d)]}
+              onPress={() => setDifficulty(d)}
+            >
+              <Text style={[s.diffBtnText, difficulty === d && s.diffBtnTextActive]}>
+                {d === 'Easy' ? '🟢' : d === 'Medium' ? '🟡' : '🔴'} {d}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* Photo */}
+        <Text style={s.sectionLabel}>Photo <Text style={s.optional}>(optional)</Text></Text>
+        {photo ? (
+          <View style={s.photoPreview}>
+            <Image source={{ uri: photo }} style={s.photoImage} resizeMode="cover" />
+            <TouchableOpacity style={s.photoRemove} onPress={() => setPhoto(null)}>
+              <Text style={s.photoRemoveText}>✕ Remove</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <TouchableOpacity
+            style={s.photoUploadBtn}
+            onPress={() => {
+              if (Platform.OS === 'web') {
+                fileInputRef.current?.click();
+              }
+            }}
+          >
+            <Text style={s.photoUploadText}>📷 Add photo</Text>
+          </TouchableOpacity>
+        )}
+        {Platform.OS === 'web' && (
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            style={{ display: 'none' }}
+            onChange={handlePhotoSelect}
+          />
+        )}
+
         <TouchableOpacity style={s.saveBtn} onPress={handleSave}>
           <Text style={s.saveBtnText}>Save Checkpoint</Text>
         </TouchableOpacity>
@@ -258,6 +311,39 @@ function makeStyles(colors) {
     },
     hintInput: { minHeight: 60 },
     generatingBox: { justifyContent: 'center', alignItems: 'center' },
+
+    difficultyRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.sm },
+    diffBtn: {
+      flex: 1,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: borderRadius.md,
+      paddingVertical: spacing.sm,
+      alignItems: 'center',
+      backgroundColor: colors.background,
+    },
+    diffBtnActive: (d) => ({
+      backgroundColor: d === 'Easy' ? '#E8F5E9' : d === 'Medium' ? '#FFF3E0' : '#FCE4EC',
+      borderColor: d === 'Easy' ? '#2D6A4F' : d === 'Medium' ? '#8B5E34' : '#C62828',
+    }),
+    diffBtnText: { fontSize: 12, fontFamily: 'Inter_500Medium', color: colors.textSecondary },
+    diffBtnTextActive: { fontFamily: 'Inter_700Bold', color: colors.textPrimary },
+
+    photoPreview: { borderRadius: borderRadius.md, overflow: 'hidden', marginBottom: spacing.sm },
+    photoImage: { width: '100%', height: 140 },
+    photoRemove: { paddingVertical: spacing.xs, alignItems: 'center' },
+    photoRemoveText: { fontSize: fontSize.caption, fontFamily: 'Inter_400Regular', color: colors.textSecondary },
+    photoUploadBtn: {
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderStyle: 'dashed',
+      borderRadius: borderRadius.md,
+      paddingVertical: spacing.lg,
+      alignItems: 'center',
+      marginBottom: spacing.sm,
+      backgroundColor: colors.background,
+    },
+    photoUploadText: { fontSize: fontSize.caption, fontFamily: 'Inter_500Medium', color: colors.textSecondary },
 
     regenerateBtn: {
       alignSelf: 'flex-start',

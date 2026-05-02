@@ -217,6 +217,7 @@ export default function CreateScreen() {
               droppedPins={droppedPins}
               onPinDrop={handlePinDrop}
               onPinRemove={handlePinRemove}
+              onPinSelect={setActivePin}
               showPinDrop
             />
           </View>
@@ -269,6 +270,7 @@ export default function CreateScreen() {
           droppedPins={droppedPins}
           onPinDrop={handlePinDrop}
           onPinRemove={handlePinRemove}
+          onPinSelect={setActivePin}
           showPinDrop
         />
       </View>

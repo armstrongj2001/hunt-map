@@ -48,6 +48,7 @@ export default function HuntMap({
   droppedPins = [],   // [{ latitude, longitude, address }] — draggable checkpoint pins
   onPinDrop,          // ({ latitude, longitude, address }) => void — new pin dropped/dragged
   onPinRemove,        // (index) => void — pin removed
+  onPinSelect,        // (index) => void — pin clicked, open editor in parent
   showPinDrop = false,// true on Create page
 }) {
   const { isLoaded } = useJsApiLoader({
@@ -300,7 +301,7 @@ export default function HuntMap({
             position={{ lat: pin.latitude, lng: pin.longitude }}
             draggable
             onDragEnd={(e) => handlePinDragEnd(e, i)}
-            onClick={() => setActivePin(activePin === i ? null : i)}
+            onClick={() => { setActivePin(activePin === i ? null : i); onPinSelect?.(i); }}
             label={{ text: `${i + 1}`, color: '#fff', fontWeight: 'bold', fontSize: '13px' }}
             icon={{
               url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
