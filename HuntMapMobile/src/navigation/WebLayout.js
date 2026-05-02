@@ -8,10 +8,12 @@ import PlayScreen from '../screens/PlayScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import HuntDetailScreen from '../screens/HuntDetailScreen';
 
+const SCREENS = ['Discover', 'Create', 'Play', 'Profile'];
+
 export default function WebLayout({ onLogout }) {
   const { colors } = useTheme();
   const [activeScreen, setActiveScreen] = useState('Discover');
-  const [huntDetailId, setHuntDetailId] = useState(null); // non-null = show detail overlay
+  const [huntDetailId, setHuntDetailId] = useState(null);
 
   function navigate(screen, params) {
     if (screen === 'HuntDetail' && params?.huntId) {
@@ -19,16 +21,6 @@ export default function WebLayout({ onLogout }) {
     } else {
       setHuntDetailId(null);
       setActiveScreen(screen);
-    }
-  }
-
-  function renderScreen() {
-    switch (activeScreen) {
-      case 'Discover': return <HomeScreen />;
-      case 'Create':   return <CreateScreen />;
-      case 'Play':     return <PlayScreen onNavigate={navigate} />;
-      case 'Profile':  return <ProfileScreen onLogout={onLogout} />;
-      default:         return <HomeScreen />;
     }
   }
 
@@ -43,7 +35,22 @@ export default function WebLayout({ onLogout }) {
             onDeleted={() => { setHuntDetailId(null); setActiveScreen('Play'); }}
           />
         ) : (
-          renderScreen()
+          <>
+            {/* All screens stay mounted — display:none hides inactive ones without unmounting.
+                This keeps the Google Map initialized and chat history alive across navigation. */}
+            <View style={[styles.screen, activeScreen !== 'Discover' && styles.hidden]}>
+              <HomeScreen />
+            </View>
+            <View style={[styles.screen, activeScreen !== 'Create' && styles.hidden]}>
+              <CreateScreen />
+            </View>
+            <View style={[styles.screen, activeScreen !== 'Play' && styles.hidden]}>
+              <PlayScreen onNavigate={navigate} />
+            </View>
+            <View style={[styles.screen, activeScreen !== 'Profile' && styles.hidden]}>
+              <ProfileScreen onLogout={onLogout} />
+            </View>
+          </>
         )}
       </View>
     </View>
@@ -53,4 +60,6 @@ export default function WebLayout({ onLogout }) {
 const styles = StyleSheet.create({
   shell: { flex: 1, flexDirection: 'row', height: '100%' },
   content: { flex: 1, overflow: 'hidden' },
+  screen: { flex: 1 },
+  hidden: { display: 'none' },
 });
