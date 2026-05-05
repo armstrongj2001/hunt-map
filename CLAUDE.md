@@ -1,7 +1,7 @@
 # HuntMap — Project Context for Claude Code
 
 ## About Me
-I'm Jobi — a construction business owner in Denver building this app as a side project. I'm technically advanced but a beginner-level coder. I know Python best and I'm learning React Native/JavaScript as I go.
+I'm Jobi — This is a side project that sparked interest when I was at an Easter egg hunt at my brothers house. I thought about Geo tagging all of the eggs that were hidden. So that idea morphed into this treasure hunt project.
 
 ## How to Work With Me
 - **Explain before acting** — tell me what you're about to do and why before writing code
