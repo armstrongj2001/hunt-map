@@ -7,8 +7,19 @@ import {
   Autocomplete,
 } from '@react-google-maps/api';
 
+// Loaded from HuntMapMobile/.env (never committed) — see .env.example.
+// EXPO_PUBLIC_ vars are inlined into the client bundle at build time, so this
+// key is visible to anyone using the web app and MUST be restricted in Google
+// Cloud Console (HTTP referrers + only the Maps/Places/Geocoding APIs).
 const API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
 const LIBRARIES = ['places'];
+
+if (!API_KEY) {
+  console.warn(
+    '[HuntMap] EXPO_PUBLIC_GOOGLE_MAPS_API_KEY is not set. ' +
+      'Copy HuntMapMobile/.env.example to HuntMapMobile/.env and add your key, then restart `expo start`.'
+  );
+}
 
 // Default center: Denver, CO
 const DEFAULT_CENTER = { lat: 39.7392, lng: -104.9903 };

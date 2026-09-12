@@ -1,3 +1,4 @@
+// Loaded from HuntMapMobile/.env (never committed) — see .env.example.
 const GOOGLE_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
 
 // Query OpenStreetMap Overpass API for named features within radiusMeters of a point
@@ -44,6 +45,8 @@ export async function queryOverpass(lat, lng, radiusMeters = 150) {
 
 // Query Google Places Nearby Search within radiusMeters
 export async function queryGooglePlaces(lat, lng, radiusMeters = 150) {
+  // Without a key the request would fail anyway; skip it so OSM + Wikipedia still work
+  if (!GOOGLE_KEY) return [];
   const url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=${radiusMeters}&key=${GOOGLE_KEY}`;
   try {
     const res = await fetch(url);
